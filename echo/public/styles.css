@@ -765,25 +765,6 @@ h3 {
   margin-top: 6px;
 }
 
-.gate-hint {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  margin-top: 28px;
-  padding-top: 22px;
-  border-top: 1px solid var(--line-soft);
-  font-size: 11.5px;
-  line-height: 1.55;
-  color: var(--faint);
-}
-
-.gate-hint .icon {
-  width: 15px;
-  height: 15px;
-  margin-top: 1px;
-  color: var(--green-600);
-}
-
 /* -------------------------------- App --------------------------------- */
 
 .app {
@@ -3294,7 +3275,7 @@ dialog.modal::backdrop {
 
 .load-days {
   display: grid;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--load-days, 9), minmax(0, 1fr));
   gap: 3px;
 }
 
@@ -3982,13 +3963,26 @@ body[data-view="settings"] .fab {
   }
 
   .load-days {
-    grid-template-columns: repeat(9, minmax(34px, 1fr));
-    overflow-x: auto;
-    padding-bottom: 2px;
+    gap: 4px;
+    overflow-x: visible;
+    padding-bottom: 0;
   }
 
   .load-day {
-    min-width: 34px;
+    min-width: 0;
+    padding: 7px 3px;
+  }
+
+  .load-day span {
+    font-size: 8px;
+  }
+
+  .load-day strong {
+    font-size: 11.5px;
+  }
+
+  .load-day .load-meter {
+    height: 4px;
   }
 
   .settings-grid {

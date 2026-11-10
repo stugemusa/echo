@@ -65,5 +65,5 @@ module.exports = {
   maxPerDay: 3,
   intervals: [3, 7, 14, 21, 30],
   isAddon,
-  version: '1.2.1',
+  version: '1.2.2',
 };

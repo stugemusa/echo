@@ -202,7 +202,7 @@
     } catch (error) {
       if (error.name === 'AbortError') throw error;
       throw new ApiError(0, {
-        message: 'No se pudo conectar con Echo. Comprueba tu conexión o el servidor de Home Assistant.',
+        message: 'No se pudo conectar con Echo. Comprueba tu conexión.',
       });
     }
 
@@ -1229,11 +1229,16 @@
     return state.study.manualDate || addDays(todayISO(), state.study.interval);
   }
 
+  function loadStripRange(target) {
+    const narrow = window.matchMedia('(max-width: 640px)').matches;
+    const span = narrow ? 2 : 4;
+    return { from: addDays(target, -span), to: addDays(target, span) };
+  }
+
   async function updateStudyPreview() {
     const target = studyTargetDate();
     const sequence = ++state.previewSeq;
-    const from = addDays(target, -4);
-    const to = addDays(target, 4);
+    const { from, to } = loadStripRange(target);
     const note = $('#loadPreviewNote');
     note.textContent = 'Calculando…';
     note.classList.remove('is-warning');
@@ -1257,6 +1262,7 @@
 
   function renderLoadStrip(container, data, target) {
     if (!container) return;
+    container.style.setProperty('--load-days', String(data.days.length || 1));
     container.innerHTML = data.days.map((day) => {
       const pending = day.reviews.filter((review) => review.status === 'pending').length;
       const meter = Array.from({ length: MAX_PER_DAY }, (_, index) => `<i class="${index < pending ? 'is-on' : ''}"></i>`).join('');
@@ -1361,8 +1367,7 @@
       return;
     }
     const sequence = ++state.movePreviewSeq;
-    const from = addDays(value, -4);
-    const to = addDays(value, 4);
+    const { from, to } = loadStripRange(value);
     note.textContent = 'Calculando…';
     note.classList.remove('is-warning');
     try {
@@ -1891,7 +1896,7 @@
           <span class="setting-icon"><svg class="icon"><use href="#i-shield"></use></svg></span>
           <div>
             <h3>Acceso y seguridad</h3>
-            <p>Todo queda en tu instalación. El PIN se define en Home Assistant.</p>
+            <p>Perfiles y sesión de este dispositivo.</p>
           </div>
         </div>
         <div class="setting-row"><span>Perfil activo</span><strong>Administración</strong></div>
@@ -1979,7 +1984,7 @@ automation:
           <span class="setting-icon"><svg class="icon"><use href="#i-download"></use></svg></span>
           <div>
             <h3>Copias de seguridad y exportación</h3>
-            <p>Lleva tu planificación e historial contigo. Todo se genera desde tu propia base de datos.</p>
+            <p>Lleva tu planificación e historial contigo.</p>
           </div>
         </div>
         <div class="setting-row"><span>Temas · repasos · pendientes</span><strong>${overview.totals.topics} · ${overview.totals.done} · ${overview.totals.pending}</strong></div>
@@ -2007,7 +2012,7 @@ automation:
           : 'Estás usando Echo por HTTP en tu red local. Para tenerla como icono en el móvil, abre el menú del navegador y elige «Añadir a pantalla de inicio». El modo sin conexión necesita HTTPS, pero el resto de la app funciona igual.'}</p>
         <div class="setting-row"><span>Servidor</span><strong>${settings.isAddon ? 'Home Assistant Add-on' : 'Docker'}</strong></div>
         <div class="setting-row"><span>Datos</span><strong>SQLite local</strong></div>
-        <p class="footer-note">Hecho para tu memoria. Sin cuentas, sin nubes, sin ruido.</p>
+        <p class="footer-note">Hecho para tu memoria.</p>
       </section>
     `;
 
@@ -2176,7 +2181,7 @@ automation:
   <h2>Historial de repasos</h2>
   ${historyRows || '<p class="empty">Todavía no hay repasos completados.</p>'}
 
-  <div class="foot"><span>Echo · Repaso espaciado para oposiciones</span><span>Datos almacenados en tu Home Assistant</span></div>
+  <div class="foot"><span>Echo · Repaso espaciado para oposiciones</span></div>
 </body>
 </html>`;
 
