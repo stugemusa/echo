@@ -1229,6 +1229,25 @@
     return state.study.manualDate || addDays(todayISO(), state.study.interval);
   }
 
+  /** Elige desde la vista rápida la fecha exacta del siguiente repaso. */
+  function pickStudyDate(date) {
+    if (!date || date <= todayISO()) return;
+    state.study.manualDate = date;
+    $('#studyDate').value = date;
+    $$('#intervalChips .chip').forEach((item) => item.classList.remove('is-active'));
+    updateIntervalHint();
+    updateStudyPreview();
+  }
+
+  /** Elige desde la vista rápida la nueva fecha de un repaso. */
+  function pickMoveDate(date) {
+    if (!date || date < todayISO()) return;
+    const input = $('#moveDate');
+    if (!input) return;
+    input.value = date;
+    updateMovePreview();
+  }
+
   function loadStripRange(target) {
     const narrow = window.matchMedia('(max-width: 640px)').matches;
     const span = narrow ? 2 : 4;
@@ -1246,7 +1265,7 @@
     try {
       const data = await api(`/api/calendar?from=${from}&to=${to}`);
       if (sequence !== state.previewSeq) return;
-      renderLoadStrip($('#loadDays'), data, target);
+      renderLoadStrip($('#loadDays'), data, target, addDays(todayISO(), 1));
       const targetDay = data.days.find((day) => day.date === target);
       const count = targetDay ? targetDay.reviews.filter((review) => review.status === 'pending').length : 0;
       const isFull = count >= MAX_PER_DAY;
@@ -1260,18 +1279,24 @@
     }
   }
 
-  function renderLoadStrip(container, data, target) {
+  function renderLoadStrip(container, data, target, minDate) {
     if (!container) return;
     container.style.setProperty('--load-days', String(data.days.length || 1));
+    if (minDate) container.dataset.minDate = minDate;
     container.innerHTML = data.days.map((day) => {
       const pending = day.reviews.filter((review) => review.status === 'pending').length;
       const meter = Array.from({ length: MAX_PER_DAY }, (_, index) => `<i class="${index < pending ? 'is-on' : ''}"></i>`).join('');
+      const pickable = !minDate || day.date >= minDate;
+      const title = pickable
+        ? `${formatMediumDate(day.date)}: ${pending} de ${MAX_PER_DAY} · pulsa para usar esta fecha`
+        : `${formatMediumDate(day.date)}: ${pending} de ${MAX_PER_DAY}`;
       return `
-        <div class="load-day ${day.date === target ? 'is-target' : ''} ${pending >= MAX_PER_DAY ? 'is-full' : ''}" title="${esc(formatMediumDate(day.date))}: ${pending} de ${MAX_PER_DAY}">
+        <button type="button" class="load-day ${day.date === target ? 'is-target' : ''} ${pending >= MAX_PER_DAY ? 'is-full' : ''} ${pickable ? '' : 'is-past'}"
+          data-date="${day.date}" ${pickable ? '' : 'aria-disabled="true"'} title="${esc(title)}">
           <span>${esc(WEEKDAYS_MINI[weekdayIndex(day.date)])} ${Number(day.date.slice(8, 10))}</span>
           <strong>${pending}</strong>
           <span class="load-meter">${meter}</span>
-        </div>
+        </button>
       `;
     }).join('');
   }
@@ -1373,7 +1398,7 @@
     try {
       const data = await api(`/api/calendar?from=${from}&to=${to}`);
       if (sequence !== state.movePreviewSeq) return;
-      renderLoadStrip($('#moveDays'), data, value);
+      renderLoadStrip($('#moveDays'), data, value, todayISO());
       const targetDay = data.days.find((day) => day.date === value);
       const count = targetDay
         ? targetDay.reviews.filter((reviewItem) => reviewItem.status === 'pending' && reviewItem.id !== review.id).length
@@ -2451,10 +2476,20 @@ automation:
       updateIntervalHint();
       updateStudyPreview();
     });
+    $('#loadDays').addEventListener('click', (event) => {
+      const day = event.target.closest('[data-date]');
+      if (!day || day.classList.contains('is-past')) return;
+      pickStudyDate(day.dataset.date);
+    });
 
     // Mover repaso
     $('#moveForm').addEventListener('submit', submitMove);
     $('#moveDate').addEventListener('change', updateMovePreview);
+    $('#moveDays').addEventListener('click', (event) => {
+      const day = event.target.closest('[data-date]');
+      if (!day || day.classList.contains('is-past')) return;
+      pickMoveDate(day.dataset.date);
+    });
     $('#moveDelete').addEventListener('click', () => openDelete(state.move.review));
 
     // Eliminar repaso

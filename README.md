@@ -272,6 +272,8 @@ Desde la vista diaria puedes pulsar el icono de mover en cualquier repaso pendie
 - **todos los repasos posteriores de ese tema se recalculan** manteniendo los intervalos guardados;
 - si hay desplazamientos por carga, se muestran igualmente en el modal de confirmación.
 
+Dentro del diálogo, la tira **Carga de la semana** también sirve para elegir: **pulsa cualquiera de esos días** y se fija como fecha, sin abrir el selector nativo. Los días que no son válidos (anteriores a hoy, o no posteriores al estudio) aparecen atenuados y no responden al toque.
+
 ### 6. Planificar un repaso a mano
 
 En cualquier día (hoy o futuro) puedes pulsar **Planificar repaso** para reservar un repaso sin registrar un estudio previo. Indica el tema y la fecha; Echo comprueba el máximo diario y te propone otro día si está completo.
