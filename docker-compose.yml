@@ -1,7 +1,7 @@
 services:
   echo:
     build:
-      context: .
+      context: ./echo-addon
       dockerfile: Dockerfile
     container_name: echo
     restart: unless-stopped

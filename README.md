@@ -104,13 +104,35 @@ El repositorio incluye `config.yaml`, `repository.yaml`, `Dockerfile` y `run.sh`
    - `session_secret`: opcional; si lo dejas vacío se genera uno.
    - `exam_date`: opcional (`YYYY-MM-DD`).
 6. Inicia el add-on y abre la interfaz web. También puedes activar **Mostrar en la barra lateral**.
-7. Para que la PWA se pueda instalar en el móvil y funcione offline, accede por **HTTPS**: usa el proxy inverso de Home Assistant, Nabu Casa o un certificado propio. El service worker no se registra en `http://IP:3000` (salvo en `localhost`).
+7. La app funciona por **HTTP** en tu red local: `http://homeassistant.local:3000` o `http://IP_DE_TU_HA:3000`. Puedes usarla en el navegador del móvil y añadir un acceso directo a la pantalla de inicio. La instalación PWA completa y el modo offline necesitan HTTPS, pero no son necesarios para usar Echo.
 
 > **Almacenamiento:** en modo add-on, la base de datos se guarda en `/data/echo.db`, dentro del volumen persistente del add-on. Los backups de Home Assistant la incluyen si activas la copia de seguridad del add-on.
 
 ### Puerto
 
 El add-on expone el puerto `3000`. Home Assistant permite cambiar el puerto del host desde la configuración del add-on (`3000/tcp`).
+
+### Sin HTTPS: qué funciona y qué no
+
+- ✅ La aplicación completa, el calendario, el historial, las exportaciones y la API externa funcionan por HTTP.
+- ✅ Puedes abrirla desde el móvil y crear un acceso directo en la pantalla de inicio.
+- ❌ El navegador no permitirá instalar la PWA ni usar la caché offline, porque el service worker exige HTTPS o `localhost`.
+- ⚠️ El PIN viaja sin cifrar por la red local. Úsala solo en tu red de confianza y no expongas el puerto `3000` directamente a Internet.
+
+No necesitas Nabu Casa ni un proxy inverso para este uso. Si más adelante quieres instalarla como PWA y tener offline, la opción más sencilla es Tailscale con HTTPS o un túnel de Cloudflare; no es necesario para empezar.
+
+### Instalar con Portainer (opcional, sin publicar imagen)
+
+No hace falta subir la imagen a Docker Hub ni a ningún registro. Portainer puede clonar este repositorio y construir la imagen localmente:
+
+1. En Portainer: **Stacks → Add stack → Repository**.
+2. Repository URL: `https://github.com/stugemusa/echo`
+3. Reference: `refs/heads/main`
+4. Compose path: `docker-compose.yml`
+5. Añade las variables de entorno `APP_PIN`, `API_TOKEN`, `SESSION_SECRET` y `TZ`.
+6. Pulsa **Deploy the stack**. Portainer clona el repo y ejecuta el `build` definido en `docker-compose.yml`, usando `echo-addon/` como contexto.
+
+La base de datos quedará en la carpeta `data/` del stack. En HA OS, sin embargo, **el add-on es más sencillo**: Home Assistant ya construye y gestiona el contenedor, lo arranca al inicio, lo incluye en las copias de seguridad y no requiere Portainer.
 
 ---
 
@@ -272,31 +294,34 @@ Si `POST /api/studies` o `PATCH /api/reviews/:id` detectan colisiones, responden
 
 ```text
 echo/
-├── server.js              # Servidor Express, seguridad y arranque
-├── schema.sql             # Esquema SQLite
-├── src/
-│   ├── api.js             # Endpoints HTTP
-│   ├── auth.js            # PIN, sesión firmada y token de API
-│   ├── config.js          # Variables de entorno y opciones del add-on
-│   ├── db.js              # SQLite y ajustes persistentes
-│   ├── dates.js           # Utilidades de fechas
-│   ├── scheduler.js       # Intervalos, cascada y colisiones
-│   └── signals.js         # Señales y emojis del calendario
-├── public/
-│   ├── index.html
-│   ├── styles.css
-│   ├── app.js
-│   ├── manifest.json
-│   ├── sw.js
-│   ├── fonts/
-│   └── icons/
-├── scripts/
-│   └── make-icons.js      # Genera los PNG de la marca sin dependencias
-├── Dockerfile
+├── echo-addon/              # Aplicación + add-on de Home Assistant
+│   ├── config.yaml          # Configuración del add-on
+│   ├── Dockerfile
+│   ├── run.sh
+│   ├── server.js            # Servidor Express, seguridad y arranque
+│   ├── schema.sql           # Esquema SQLite
+│   ├── src/
+│   │   ├── api.js           # Endpoints HTTP
+│   │   ├── auth.js          # PIN, sesión firmada y token de API
+│   │   ├── config.js        # Variables de entorno y opciones del add-on
+│   │   ├── db.js            # SQLite y ajustes persistentes
+│   │   ├── dates.js         # Utilidades de fechas
+│   │   ├── scheduler.js     # Intervalos, cascada y colisiones
+│   │   └── signals.js       # Señales y emojis del calendario
+│   ├── public/
+│   │   ├── index.html
+│   │   ├── styles.css
+│   │   ├── app.js
+│   │   ├── manifest.json
+│   │   ├── sw.js
+│   │   ├── fonts/
+│   │   └── icons/
+│   ├── scripts/
+│   │   └── make-icons.js    # Genera los PNG de la marca sin dependencias
+│   ├── README.md            # Ficha del add-on
+│   └── DOCS.md              # Documentación del add-on
 ├── docker-compose.yml
-├── config.yaml            # Add-on de Home Assistant OS
-├── repository.yaml        # Repositorio de add-ons
-├── run.sh
+├── repository.yaml          # Repositorio de add-ons de Home Assistant
 ├── .env.example
 └── README.md
 ```
@@ -317,6 +342,7 @@ Para restaurar un JSON necesitarías importarlo en una instalación nueva median
 ## Desarrollo local
 
 ```bash
+cd echo-addon
 npm install
 APP_PIN=1234 API_TOKEN=test-token npm start
 ```
