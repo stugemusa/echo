@@ -71,7 +71,11 @@ HTTPS.
 
 ## Móvil
 
-La interfaz se adapta sola: en pantallas pequeñas el mes usa números grandes y puntos de color por día, y la agenda diaria muestra los temas con botones táctiles.
+La interfaz se adapta sola: en pantallas pequeñas el mes usa números grandes y puntos de color por día, la semana se muestra como lista vertical y la agenda diaria usa botones táctiles.
+
+## Sesión
+
+Cualquier perfil puede cerrar sesión desde el icono de salida de la barra superior. La administración lo tiene también en Ajustes.
 
 ## Señales
 

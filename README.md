@@ -23,7 +23,8 @@ Está pensada para ejecutarse en **Home Assistant OS** sobre una Raspberry Pi, c
 - **Historial por tema** con número de repasos, fechas, intervalos y comentarios; buscador y ordenación.
 - **Deshacer un estudio** registrado por error: el repaso vuelve a estar pendiente y la cadena se recalcula sola.
 - **Eliminar repasos**: si un repaso se creó por error, puedes borrarlo desde la vista diaria con confirmación.
-- **Vista móvil específica**: calendario con números grandes y puntos de carga (sin texto microscópico) y agenda táctil.
+- **Vista móvil específica**: calendario con números grandes y puntos de carga (sin texto microscópico), semana en lista vertical y agenda táctil.
+- **Cierre de sesión** disponible en la barra superior para cualquier perfil.
 - **Señales de constancia** con emojis en el calendario:
   - ❤️ el día que se recibe una señal;
   - 😢 a los 7 días sin señal;
@@ -202,8 +203,11 @@ En pantallas de móvil Echo cambia de forma automática:
 
 - el **calendario** del mes muestra el número del día en grande y hasta tres **puntos de color** por día (verde = pendiente, gris = completado, ámbar = atrasado) en lugar de los chips de texto;
 - la **señal** aparece como emoji en la esquina del día;
+- la vista **semanal** se convierte en una lista vertical: cada día es una fila con su fecha a la izquierda y sus repasos a la derecha, sin scroll lateral;
 - al tocar un día se abre su **agenda** con los temas a tamaño de lectura y botones táctiles (registrar, cambiar fecha, eliminar);
 - los repasos completados del Historial llevan su botón de **deshacer** siempre visible.
+
+El **cierre de sesión** está en la barra superior (icono de salida), disponible para cualquier perfil.
 
 No hace falta configurar nada: se adapta por el ancho de la pantalla y por si el dispositivo tiene puntero o es táctil.
 

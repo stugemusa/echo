@@ -1141,6 +1141,22 @@ h3 {
   box-shadow: none;
 }
 
+.topbar-logout {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-color: var(--line);
+  background: var(--paper);
+  color: var(--faint);
+  box-shadow: var(--shadow-xs);
+}
+
+.topbar-logout:hover {
+  border-color: var(--red-line);
+  background: var(--red-bg);
+  color: var(--red);
+}
+
 #main {
   min-height: calc(100dvh - 64px);
 }
@@ -3920,24 +3936,6 @@ body[data-view="settings"] .fab {
     height: 30px;
   }
 
-  .week-grid {
-    display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .week-col {
-    min-width: 76vw;
-    min-height: 360px;
-    border-right: 1px solid var(--line-soft);
-    scroll-snap-align: start;
-  }
-
-  .week-col:last-child {
-    border-right: 0;
-  }
-
   .modal-foot {
     flex-direction: column-reverse;
     padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
@@ -4035,10 +4033,6 @@ body[data-view="settings"] .fab {
 
   .legend-note {
     font-size: 8.5px;
-  }
-
-  .week-col {
-    min-width: 82vw;
   }
 
   .history-toolbar {
@@ -4283,5 +4277,94 @@ body[data-view="settings"] .fab {
     width: 34px;
     height: 34px;
     opacity: 1;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Vista semanal en vertical (sin scroll lateral)
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 860px) {
+  .week-grid {
+    display: block;
+    overflow: visible;
+    scroll-snap-type: none;
+  }
+
+  .week-col {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    min-width: 0;
+    min-height: 0;
+    padding-bottom: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line-soft);
+    scroll-snap-align: none;
+  }
+
+  .week-col:last-child {
+    border-bottom: 0;
+  }
+
+  .week-head {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    justify-content: flex-start;
+    gap: 2px;
+    padding: 12px 8px;
+    border-bottom: 0;
+    border-right: 1px solid var(--line-soft);
+  }
+
+  .week-head .wd {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+
+  .week-head .wn {
+    min-width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    font-size: 20px;
+  }
+
+  .week-head-marks {
+    min-height: 0;
+    font-size: 12px;
+  }
+
+  .week-body {
+    grid-column: 2;
+    grid-row: 1;
+    padding: 10px 12px 4px;
+    gap: 6px;
+  }
+
+  .week-card {
+    padding: 9px 10px 8px;
+  }
+
+  .week-card strong {
+    font-size: 13px;
+  }
+
+  .week-card span {
+    font-size: 10.5px;
+  }
+
+  .week-empty {
+    padding: 2px 0 0;
+    text-align: left;
+    font-size: 11px;
+  }
+
+  .week-foot {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 0;
+    padding: 0 12px 10px;
+    text-align: left;
+    font-size: 9px;
   }
 }

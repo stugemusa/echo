@@ -1,5 +1,5 @@
 name: Echo
-version: "1.2.0"
+version: "1.2.1"
 slug: echo
 description: Sistema de arrastre para oposiciones con repaso espaciado, calendario y señales.
 url: https://github.com/stugemusa/echo
