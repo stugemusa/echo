@@ -61,12 +61,20 @@ instalación como PWA requieren un contexto seguro (HTTPS o `localhost`), así q
 por HTTP no habrá modo offline. No expongas el puerto directamente a Internet sin
 HTTPS.
 
+## Repasos
+
+- **Planificar a mano**: en la vista diaria, **Planificar repaso** reserva un repaso en cualquier día futuro sin registrar un estudio.
+- **Cambiar la fecha**: recalcula toda la cadena posterior del tema.
+- **Eliminar**: la papelera de cada repaso pendiente (o **Eliminar** al cambiar la fecha) borra ese repaso con confirmación. Los días futuros no permiten registrar estudio.
+
 ## Señales
 
 Las señales no se planifican con antelación. Desde la última señal, el calendario
 solo muestra **la siguiente marca** y solo **dos días antes** de su fecha; las
 marcas ya alcanzadas se mantienen. Cadencia: ❤️ el día de la señal, 😢 +7, 😭 +14,
 💔 +21 y un corazón roto más cada 5 días. Una nueva señal reinicia el ciclo.
+
+No hay leyenda ni aviso del próximo icono: el diseño es discreto a propósito.
 
 ## API externa
 

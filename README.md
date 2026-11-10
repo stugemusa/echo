@@ -21,12 +21,14 @@ Está pensada para ejecutarse en **Home Assistant OS** sobre una Raspberry Pi, c
 - **Confirmación de ajustes**: cualquier movimiento por exceso de carga se muestra en un modal antes de guardarse.
 - **Recálculo de cadencia**: al mover un repaso, todos los posteriores de ese tema se recalculan manteniendo los intervalos.
 - **Historial por tema** con número de repasos, fechas, intervalos y comentarios; buscador y ordenación.
+- **Eliminar repasos**: si un repaso se creó por error, puedes borrarlo desde la vista diaria con confirmación.
 - **Señales de constancia** con emojis en el calendario:
   - ❤️ el día que se recibe una señal;
   - 😢 a los 7 días sin señal;
   - 😭 a los 14 días;
   - 💔 a los 21 días y un corazón roto adicional cada 5 días;
-  - solo se muestra la **siguiente** marca, y únicamente **dos días antes** de su fecha.
+  - solo se muestra la **siguiente** marca, y únicamente **dos días antes** de su fecha;
+  - sin leyenda ni pistas: no se anuncia qué icono saldrá ni cuándo.
 - **Dos perfiles con PIN**: usuario normal (calendario, estudio y fecha del examen) y administración (ajustes, señales y API).
 - **Planificación manual**: reserva un repaso en cualquier día futuro sin registrar un estudio.
 - **API externa** `POST /api/signal` protegida con token, ideal para automatizaciones de Home Assistant.
@@ -259,7 +261,11 @@ En cualquier día (hoy o futuro) puedes pulsar **Planificar repaso** para reserv
 
 Los **días futuros** no permiten registrar estudio: pulsar un repaso futuro abre directamente el cambio de fecha, y el botón de registrar solo aparece en hoy o en días pasados. Así el registro de estudio siempre refleja algo que ya ha ocurrido.
 
-### 7. Señales: solo la siguiente
+### 7. Eliminar un repaso creado por error
+
+Desde la vista diaria, cada repaso pendiente tiene un botón de papelera (también aparece como **Eliminar** al abrir el cambio de fecha). Pide confirmación y borra **solo ese repaso**: el historial del tema y los demás repasos no se tocan. Si el borrado era parte de una cadena, los repasos siguientes mantienen sus fechas.
+
+### 8. Señales: solo la siguiente
 
 Las señales **no se planifican con antelación** como los repasos. A partir de la última señal:
 
@@ -267,7 +273,9 @@ Las señales **no se planifican con antelación** como los repasos. A partir de 
 - las marcas ya alcanzadas (😢, 😭, 💔…) se mantienen visibles como historial;
 - una nueva señal reinicia el ciclo y vuelve a dibujar ❤️.
 
-Ejemplo: si hoy hay señal y la siguiente marca toca a los 7 días, el icono 😢 aparecerá el día 5 y se quedará a partir de ahí. Hasta entonces, el calendario solo muestra el corazón de hoy.
+Ejemplo: si hoy hay señal y la siguiente marca toca a los 7 días, el icono 😢 aparecerá el día 5 **en la casilla del día 7** y se quedará a partir de ahí. Hasta entonces, el calendario solo muestra el corazón de hoy.
+
+El diseño es deliberadamente discreto: no hay leyenda de emojis, ni se anuncia cuándo aparecerá la próxima marca o con qué icono, para que la sorpresa forme parte del recordatorio. El aviso del calendario y la nota al pie solo indican **cuánto tiempo ha pasado** desde la última señal, con mensajes variados que se vuelven menos sutiles conforme pasa el tiempo (y solo la administración puede dejar la señal desde ahí).
 
 ---
 

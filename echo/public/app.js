@@ -44,6 +44,7 @@
     },
     move: { review: null },
     plan: { date: '' },
+    deleting: null,
     pendingConfirm: null,
     previewSeq: 0,
     movePreviewSeq: 0,
@@ -640,7 +641,6 @@
   function renderSidebar() {
     const overview = state.overview;
     const examBox = $('#sidebarExam');
-    const signalBox = $('#sidebarSignal');
     if (!overview) return;
 
     if (overview.examDate) {
@@ -659,19 +659,6 @@
         <button type="button" data-action="open-exam">Configurar fecha →</button>
       `;
     }
-
-    const signal = overview.signal;
-    const symbol = signal?.currentSymbol || '—';
-    const text = signal?.last
-      ? `${signal.daysSince === 0 ? 'Señal hoy' : `Hace ${signal.daysSince} ${plural(signal.daysSince, 'día', 'días')}`} · ${signal.total} ${plural(signal.total, 'señal', 'señales')}`
-      : 'Sin señales todavía';
-    signalBox.innerHTML = `
-      <span class="sig-emoji">${esc(symbol)}</span>
-      <span class="sig-text">
-        <strong>Señal ${signal?.last ? 'activa' : 'pendiente'}</strong>
-        <span>${esc(text)}</span>
-      </span>
-    `;
 
     $('#sidebarFootText').textContent = `Sincronizado · v${state.version || state.settings?.version || '1.1'}`;
     const dot = $('#connectionDot');
@@ -787,26 +774,17 @@
 
     const signal = overview.signal;
     const signalCard = `
-      <section class="rail-card signal-card">
+      <section class="signal-card is-quiet">
         <div class="signal-top">
           <span class="signal-emoji ${signal?.last ? '' : 'is-empty'}">${esc(signal?.currentSymbol || '♡')}</span>
           <div class="signal-copy">
-            <strong>${signal?.last ? `Última señal: ${relativeDays(signal.last.date)}` : 'Sin señales'}</strong>
-            <span>${signal?.last ? `${signal.total} ${plural(signal.total, 'señal', 'señales')} · ${signal.daysSince} ${plural(signal.daysSince, 'día', 'días')} desde la última` : 'Cuando llegue la primera señal, aquí verás el tiempo transcurrido.'}</span>
+            ${signal?.last
+              ? `<strong>${signal.daysSince === 0 ? 'El corazón es de hoy' : `Hace ${signal.daysSince} ${plural(signal.daysSince, 'día', 'días')}`}</strong>
+                 <span>desde la última señal</span>`
+              : `<strong>Todavía sin señales</strong>
+                 <span>el tiempo empezará a contar</span>`}
           </div>
         </div>
-        ${signal?.nextMark ? `
-          <div class="signal-next">
-            <span title="${esc(formatMediumDate(signal.nextMark.date))}">
-              ${esc(signal.nextMark.symbol)} ${esc(formatShortDate(signal.nextMark.date))}
-            </span>
-            ${signal.nextMark.visible ? '<span class="signal-next-note">visible en el calendario</span>' : `<span class="signal-next-note">faltan ${signal.nextMark.daysUntil} ${plural(signal.nextMark.daysUntil, 'día', 'días')}</span>`}
-          </div>
-        ` : ''}
-        <button type="button" class="btn btn-soft" data-action="mark-signal" data-admin-only ${isAdmin() ? '' : 'hidden'}>
-          <svg class="icon icon-sm"><use href="#i-heart"></use></svg>
-          Marcar señal de hoy
-        </button>
       </section>
     `;
 
@@ -832,7 +810,7 @@
       </section>
     `;
 
-    rail.innerHTML = todayCard + overdueCard + examCard + signalCard + loadCard;
+    rail.innerHTML = todayCard + overdueCard + examCard + loadCard + signalCard;
   }
 
   /* ------------------------------------------------------------------ */
@@ -840,17 +818,15 @@
   /* ------------------------------------------------------------------ */
 
   function markTitle(mark) {
-    if (mark.tone === 'heart') return 'Señal registrada ❤️';
-    if (mark.tone === 'sad') return '7 días sin señal';
-    if (mark.tone === 'cry') return '14 días sin señal';
-    return `${mark.offset} días sin señal`;
+    return mark.tone === 'heart' ? 'Señal' : '';
   }
 
   function marksHtml(marks) {
     if (!marks || !marks.length) return '';
     return `<span class="day-marks">${marks.slice(0, 4).map((mark) => {
       const cls = mark.tone === 'heart' ? '' : mark.tone === 'broken' ? 'is-decay is-broken' : 'is-decay';
-      return `<span class="mark ${cls}" title="${esc(markTitle(mark))}">${esc(mark.symbol)}</span>`;
+      const title = markTitle(mark);
+      return `<span class="mark ${cls}"${title ? ` title="${esc(title)}"` : ''}>${esc(mark.symbol)}</span>`;
     }).join('')}</span>`;
   }
 
@@ -1000,7 +976,10 @@
               <div class="week-head">
                 <span class="wd">${esc(formatWeekday(day.date, true))}</span>
                 <span class="wn">${Number(day.date.slice(8, 10))}</span>
-                <span class="week-head-marks">${(day.marks || []).slice(0, 3).map((mark) => `<span title="${esc(markTitle(mark))}">${esc(mark.symbol)}</span>`).join('')}</span>
+                <span class="week-head-marks">${(day.marks || []).slice(0, 3).map((mark) => {
+                  const title = markTitle(mark);
+                  return `<span${title ? ` title="${esc(title)}"` : ''}>${esc(mark.symbol)}</span>`;
+                }).join('')}</span>
               </div>
               <div class="week-body">
                 ${cards || '<div class="week-empty">—</div>'}
@@ -1036,6 +1015,9 @@
             <span>${overdue ? `Atrasado ${late} ${plural(late, 'día', 'días')}` : `Programado · ${formatShortDate(review.dueDate)}`} · intervalo de ${review.intervalDays} días</span>
           </div>
           <div class="agenda-actions">
+            <button type="button" class="icon-btn is-danger" data-delete-review="${review.id}" title="Eliminar este repaso" aria-label="Eliminar ${esc(review.topic.code)}">
+              <svg class="icon"><use href="#i-trash"></use></svg>
+            </button>
             <button type="button" class="icon-btn" data-move-review="${review.id}" title="Cambiar la fecha de este repaso" aria-label="Cambiar fecha de ${esc(review.topic.code)}">
               <svg class="icon"><use href="#i-move"></use></svg>
             </button>
@@ -1591,6 +1573,47 @@
         renderSettings();
       }
     } catch (error) {
+      errorBox.textContent = error.message;
+    } finally {
+      setBusy(button, false);
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Modal: eliminar repaso                                              */
+  /* ------------------------------------------------------------------ */
+
+  function openDelete(review) {
+    if (!review) return;
+    state.deleting = review;
+    $('#deleteIntro').textContent = `Se eliminará el repaso de ${review.topic.code} previsto para el ${formatMediumDate(review.dueDate)}.`;
+    $('#deleteError').textContent = '';
+    closeDialog($('#moveDialog'));
+    showDialog($('#deleteDialog'));
+  }
+
+  async function confirmDelete() {
+    const review = state.deleting;
+    if (!review) return;
+    const button = $('#deleteConfirm');
+    const errorBox = $('#deleteError');
+    errorBox.textContent = '';
+    setBusy(button, true);
+    try {
+      await api(`/api/reviews/${review.id}`, { method: 'DELETE' });
+      closeDialog($('#deleteDialog'));
+      state.deleting = null;
+      toast(`Repaso de ${review.topic.code} eliminado.`);
+      state.historyDirty = true;
+      await refreshAfterMutation().catch((error) => toast(error.message, 'error'));
+    } catch (error) {
+      if (error.status === 404) {
+        closeDialog($('#deleteDialog'));
+        state.deleting = null;
+        toast('Ese repaso ya no existía.', 'amber');
+        await refreshAfterMutation().catch(() => {});
+        return;
+      }
       errorBox.textContent = error.message;
     } finally {
       setBusy(button, false);
@@ -2261,6 +2284,17 @@ automation:
         return;
       }
 
+      const deleteReview = event.target.closest('[data-delete-review]');
+      if (deleteReview) {
+        const review = findReviewInState(deleteReview.dataset.deleteReview);
+        if (review) {
+          event.preventDefault();
+          event.stopPropagation();
+          openDelete(review);
+        }
+        return;
+      }
+
       const moveReview = event.target.closest('[data-move-review]');
       if (moveReview) {
         const review = findReviewInState(moveReview.dataset.moveReview);
@@ -2374,6 +2408,10 @@ automation:
     // Mover repaso
     $('#moveForm').addEventListener('submit', submitMove);
     $('#moveDate').addEventListener('change', updateMovePreview);
+    $('#moveDelete').addEventListener('click', () => openDelete(state.move.review));
+
+    // Eliminar repaso
+    $('#deleteConfirm').addEventListener('click', confirmDelete);
 
     // Planificar repaso
     $('#planForm').addEventListener('submit', submitPlan);

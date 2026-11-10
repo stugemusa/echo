@@ -47,6 +47,7 @@
   <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8.2-8 9-4.5-.8-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
   <symbol id="i-install" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M12 6v8M9 11l3 3 3-3"/></symbol>
   <symbol id="i-today" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="12" cy="15.5" r="1.5" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 12.5a1 1 0 0 0 1 .9h8a1 1 0 0 0 1-.9L18 7"/><path d="M10 11.5v5M14 11.5v5"/></symbol>
 </svg>
 
 <div class="boot" id="boot">
@@ -127,7 +128,6 @@
 
     <div class="sidebar-spacer"></div>
     <div class="sidebar-exam" id="sidebarExam"></div>
-    <div class="sidebar-signal" id="sidebarSignal"></div>
     <div class="sidebar-foot">
       <span class="status-dot" id="connectionDot"></span>
       <span id="sidebarFootText">Sincronizado · v1.0</span>
@@ -192,7 +192,6 @@
                   <button type="button" class="seg-item" data-mode="day" role="tab">Día</button>
                 </div>
                 <div class="cal-toolbar-spacer"></div>
-                <p class="cal-toolbar-note"><span class="mini-heart">❤</span> señal · <span class="mini-face">☹</span> sin señal</p>
               </div>
               <div class="calendar-stage" id="calendarStage">
                 <div class="loading-block"><span class="spinner"></span></div>
@@ -387,6 +386,10 @@
       <p class="form-error" id="moveError" role="alert"></p>
     </div>
     <div class="modal-foot">
+      <button type="button" class="btn btn-ghost modal-foot-start" id="moveDelete">
+        <svg class="icon icon-sm"><use href="#i-trash"></use></svg>
+        <span>Eliminar</span>
+      </button>
       <button type="button" class="btn btn-ghost" data-close="moveDialog">Cancelar</button>
       <button type="submit" class="btn btn-primary" id="moveSubmit">Guardar nueva fecha</button>
     </div>
@@ -454,6 +457,36 @@
       <button type="submit" class="btn btn-primary" id="examSubmit">Guardar fecha</button>
     </div>
   </form>
+</dialog>
+
+<!-- ==================== MODAL: ELIMINAR ====================== -->
+<dialog class="modal modal-sm" id="deleteDialog" aria-labelledby="deleteTitle">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="collision-heading">
+        <span class="collision-icon is-danger"><svg class="icon"><use href="#i-trash"></use></svg></span>
+        <div>
+          <p class="eyebrow">Repaso pendiente</p>
+          <h2 id="deleteTitle">Eliminar repaso</h2>
+        </div>
+      </div>
+      <button type="button" class="icon-btn" data-close="deleteDialog" aria-label="Cerrar">
+        <svg class="icon"><use href="#i-x"></use></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p class="muted" id="deleteIntro"></p>
+      <p class="hint">Solo se elimina este repaso. El historial del tema y los demás repasos no cambian.</p>
+      <p class="form-error" id="deleteError" role="alert"></p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-ghost" data-close="deleteDialog">Cancelar</button>
+      <button type="button" class="btn btn-danger" id="deleteConfirm">
+        <svg class="icon"><use href="#i-trash"></use></svg>
+        <span>Eliminar</span>
+      </button>
+    </div>
+  </div>
 </dialog>
 
 <!-- =================== MODAL: COLISIONES ======================= -->
