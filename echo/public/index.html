@@ -48,6 +48,7 @@
   <symbol id="i-install" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M12 6v8M9 11l3 3 3-3"/></symbol>
   <symbol id="i-today" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="12" cy="15.5" r="1.5" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 12.5a1 1 0 0 0 1 .9h8a1 1 0 0 0 1-.9L18 7"/><path d="M10 11.5v5M14 11.5v5"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M4 9h11a5 5 0 0 1 0 10h-6"/><path d="M8 5L4 9l4 4"/></symbol>
 </svg>
 
 <div class="boot" id="boot">
@@ -130,7 +131,7 @@
     <div class="sidebar-exam" id="sidebarExam"></div>
     <div class="sidebar-foot">
       <span class="status-dot" id="connectionDot"></span>
-      <span id="sidebarFootText">Sincronizado · v1.0</span>
+      <span id="sidebarFootText">Sincronizado · v1.2</span>
     </div>
   </aside>
 
@@ -170,8 +171,6 @@
         </div>
 
         <h2 class="sr-only">Planificación de repasos</h2>
-
-        <div class="signal-nudge" id="signalNudge" hidden></div>
 
         <div class="calendar-layout">
           <div class="calendar-main">
@@ -484,6 +483,36 @@
       <button type="button" class="btn btn-danger" id="deleteConfirm">
         <svg class="icon"><use href="#i-trash"></use></svg>
         <span>Eliminar</span>
+      </button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ==================== MODAL: DESHACER ====================== -->
+<dialog class="modal modal-sm" id="undoDialog" aria-labelledby="undoTitle">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="collision-heading">
+        <span class="collision-icon is-danger"><svg class="icon"><use href="#i-undo"></use></svg></span>
+        <div>
+          <p class="eyebrow">Estudio registrado</p>
+          <h2 id="undoTitle">Deshacer estudio</h2>
+        </div>
+      </div>
+      <button type="button" class="icon-btn" data-close="undoDialog" aria-label="Cerrar">
+        <svg class="icon"><use href="#i-x"></use></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p class="muted" id="undoIntro"></p>
+      <p class="hint">El repaso vuelve a quedar pendiente y los repasos siguientes de ese tema se recalculan desde él. Si lo mueves después, la cadena se recalcula otra vez.</p>
+      <p class="form-error" id="undoError" role="alert"></p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-ghost" data-close="undoDialog">Cancelar</button>
+      <button type="button" class="btn btn-danger" id="undoConfirm">
+        <svg class="icon"><use href="#i-undo"></use></svg>
+        <span>Deshacer</span>
       </button>
     </div>
   </div>

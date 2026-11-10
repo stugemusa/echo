@@ -21,7 +21,9 @@ Está pensada para ejecutarse en **Home Assistant OS** sobre una Raspberry Pi, c
 - **Confirmación de ajustes**: cualquier movimiento por exceso de carga se muestra en un modal antes de guardarse.
 - **Recálculo de cadencia**: al mover un repaso, todos los posteriores de ese tema se recalculan manteniendo los intervalos.
 - **Historial por tema** con número de repasos, fechas, intervalos y comentarios; buscador y ordenación.
+- **Deshacer un estudio** registrado por error: el repaso vuelve a estar pendiente y la cadena se recalcula sola.
 - **Eliminar repasos**: si un repaso se creó por error, puedes borrarlo desde la vista diaria con confirmación.
+- **Vista móvil específica**: calendario con números grandes y puntos de carga (sin texto microscópico) y agenda táctil.
 - **Señales de constancia** con emojis en el calendario:
   - ❤️ el día que se recibe una señal;
   - 😢 a los 7 días sin señal;
@@ -194,6 +196,17 @@ Con HTTP puedes tener Echo como un icono más, a pantalla completa, sin instalar
 
 > **Usa siempre la misma URL.** La sesión está ligada al origen: si un día entras por `http://192.168.1.50:9001` y otro por `http://homeassistant.local:9001`, te pedirá el PIN de nuevo.
 
+### La vista móvil
+
+En pantallas de móvil Echo cambia de forma automática:
+
+- el **calendario** del mes muestra el número del día en grande y hasta tres **puntos de color** por día (verde = pendiente, gris = completado, ámbar = atrasado) en lugar de los chips de texto;
+- la **señal** aparece como emoji en la esquina del día;
+- al tocar un día se abre su **agenda** con los temas a tamaño de lectura y botones táctiles (registrar, cambiar fecha, eliminar);
+- los repasos completados del Historial llevan su botón de **deshacer** siempre visible.
+
+No hace falta configurar nada: se adapta por el ancho de la pantalla y por si el dispositivo tiene puntero o es táctil.
+
 
 ### Instalar con Portainer (opcional, sin publicar imagen)
 
@@ -261,11 +274,25 @@ En cualquier día (hoy o futuro) puedes pulsar **Planificar repaso** para reserv
 
 Los **días futuros** no permiten registrar estudio: pulsar un repaso futuro abre directamente el cambio de fecha, y el botón de registrar solo aparece en hoy o en días pasados. Así el registro de estudio siempre refleja algo que ya ha ocurrido.
 
-### 7. Eliminar un repaso creado por error
+### 7. Deshacer un estudio registrado
 
-Desde la vista diaria, cada repaso pendiente tiene un botón de papelera (también aparece como **Eliminar** al abrir el cambio de fecha). Pide confirmación y borra **solo ese repaso**: el historial del tema y los demás repasos no se tocan. Si el borrado era parte de una cadena, los repasos siguientes mantienen sus fechas.
+Si registraste un estudio por error (te equivocaste de tema, o no era hoy), en el **Historial** cada repaso completado tiene un botón de deshacer. Al confirmarlo:
 
-### 8. Señales: solo la siguiente
+- el repaso **vuelve a estar pendiente** en su fecha original;
+- **toda la cadena posterior de ese tema se recalcula** desde él, igual que si lo hubieras movido a mano;
+- el estudio desaparece del historial.
+
+No se puede deshacer un estudio si hay otro posterior del mismo tema ya registrado: primero deshaces el más reciente.
+
+### 8. Eliminar un repaso creado por error
+
+Desde la vista diaria, cada repaso pendiente tiene un botón de papelera (también aparece como **Eliminar** al abrir el cambio de fecha). Pide confirmación y borra **solo ese repaso**: el historial del tema y los demás repasos no se tocan.
+
+### 9. La cadena sigue siempre al último repaso
+
+Los repasos siguientes de un tema se derivan siempre del último punto «fijo»: el último estudio registrado o el último repaso que moviste a mano. Por eso, si mueves un repaso a otro día, **todo lo que venía detrás se desplaza** para mantener la cadencia.
+
+### 10. Señales: solo la siguiente
 
 Las señales **no se planifican con antelación** como los repasos. A partir de la última señal:
 
@@ -359,9 +386,9 @@ A partir de la **última señal**:
 
 Una nueva llamada a `POST /api/signal` reinicia por completo el ciclo y vuelve a dibujar ❤️ en el día actual. Los corazones de señales anteriores se conservan como historial visual.
 
-El perfil de administración puede **marcar la señal de hoy** desde Ajustes o desde el aviso del calendario (sin necesidad de token).
+El perfil de administración puede **marcar la señal de hoy** desde Ajustes o desde la nota del pie del calendario (sin necesidad de token).
 
-Además, el calendario muestra al principio un **aviso discreto** con los días transcurridos desde la última señal. El texto es variado y se vuelve menos sutil con el tiempo, para invitar a dejar un corazón nuevo.
+Además, al pie del panel lateral hay una **nota discreta** con el último icono, los días transcurridos desde la última señal y un mensaje variado que se vuelve menos sutil con el tiempo, para invitar a dejar un corazón nuevo. No hay leyenda ni aviso del próximo icono: la sorpresa forma parte del recordatorio.
 
 ---
 
@@ -377,6 +404,7 @@ Todas las rutas, salvo `/api/auth`, `/api/session`, `/api/health` y `/api/signal
 | `GET` | `/api/overview` | usuario | Resumen de hoy, atrasados, próximos 7 días, examen y señal. |
 | `GET` | `/api/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD` | usuario | Repasos y marcas de señal por día (máx. 150 días). |
 | `POST` | `/api/studies` | usuario | Registra un estudio de hoy o del pasado y genera la cascada. |
+| `POST` | `/api/reviews/:id/undo` | usuario | Deshace un estudio: el repaso vuelve a pendiente y se recalcula la cadena. |
 | `POST` | `/api/plan` | usuario | Planifica un repaso manual en una fecha (hoy o futura). |
 | `PATCH` | `/api/reviews/:id` | usuario | Cambia la fecha de un repaso y recalcula los posteriores. |
 | `DELETE` | `/api/reviews/:id` | usuario | Elimina un repaso pendiente. |

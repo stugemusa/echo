@@ -672,6 +672,62 @@ router.delete('/reviews/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+/**
+ * Deshace un estudio registrado por error.
+ * El repaso vuelve a estar pendiente en su fecha original y toda la cadena
+ * posterior del tema se recalcula desde él. Si después lo mueves, la cadena
+ * se vuelve a recalcular igual que con cualquier otro repaso.
+ */
+router.post('/reviews/:id/undo', (req, res) => {
+  const review = reviewWithTopic.get(Number(req.params.id));
+  if (!review) {
+    return res.status(404).json({ error: 'not_found', message: 'Estudio no encontrado.' });
+  }
+  if (review.status !== 'done') {
+    return res.status(400).json({ error: 'not_done', message: 'Ese repaso todavía no está registrado.' });
+  }
+
+  const laterStudy = db
+    .prepare("SELECT COUNT(*) AS count FROM reviews WHERE topic_id = ? AND status = 'done' AND due_date > ?")
+    .get(review.topic_id, review.due_date).count;
+  if (laterStudy > 0) {
+    return res
+      .status(409)
+      .json({ error: 'later_study', message: 'Hay un estudio posterior de este tema. Deshaz primero el más reciente.' });
+  }
+
+  const preview = planReschedule({
+    db,
+    review,
+    targetDate: review.due_date,
+    examDate: getExamDate(),
+    maxPerDay: getMaxPerDay(),
+    allowPast: true,
+    exactDate: true,
+  });
+
+  if (preview.error) {
+    return res.status(400).json({ error: 'invalid_reschedule', message: preview.error });
+  }
+
+  const timestamp = new Date().toISOString();
+  db.transaction(() => {
+    db.prepare(
+      "DELETE FROM reviews WHERE topic_id = ? AND (id = ? OR (status = 'pending' AND due_date >= ?))"
+    ).run(review.topic_id, review.id, review.due_date);
+    applyPlan(db, review.topic_id, preview.plan);
+    db.prepare('UPDATE topics SET updated_at = ? WHERE id = ?').run(timestamp, review.topic_id);
+  })();
+
+  res.json({
+    ok: true,
+    topic: { id: review.topic_id, code: review.topic_code },
+    restoredDate: preview.plan[0]?.due_date || review.due_date,
+    plannedReviews: preview.plan.length,
+    collisions: preview.collisions.map(publicCollision),
+  });
+});
+
 router.get('/history', (req, res) => {
   const query = String(req.query.q || '').trim().toLowerCase();
   const sort = req.query.sort === 'topic' ? 'topic' : 'date';

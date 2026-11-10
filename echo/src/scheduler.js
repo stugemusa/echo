@@ -175,8 +175,11 @@ function planCascade({ db, topicId, startDate, firstGap, examDate, maxPerDay = 3
 /**
  * Recalcula un repaso pendiente y toda su cadena posterior.
  * Mantiene los intervalos ya definidos para los repasos que siguen.
+ *
+ * `allowPast` + `exactDate` se usan al deshacer un estudio: el repaso vuelve
+ * a su fecha original aunque ya haya pasado y sin buscar hueco alternativo.
  */
-function planReschedule({ db, review, targetDate, examDate, maxPerDay = 3 }) {
+function planReschedule({ db, review, targetDate, examDate, maxPerDay = 3, allowPast = false, exactDate = false }) {
   const topic = db.prepare('SELECT * FROM topics WHERE id = ?').get(review.topic_id);
   if (!topic) return { error: 'Tema no encontrado.', notFound: true };
 
@@ -194,10 +197,18 @@ function planReschedule({ db, review, targetDate, examDate, maxPerDay = 3 }) {
       : previous.due_date
     : (topic.created_at || review.due_date).slice(0, 10);
 
-  const minDate = maxDate(todayISO(), addDays(basePrev, 1));
-  if (targetDate < minDate) {
+  const minDate = allowPast
+    ? addDays(basePrev, 1)
+    : maxDate(todayISO(), addDays(basePrev, 1));
+  if (!allowPast && targetDate < minDate) {
     return {
       error: `La fecha debe ser posterior al ${basePrev} y no anterior a hoy.`,
+      invalidDate: true,
+    };
+  }
+  if (!exactDate && targetDate < minDate) {
+    return {
+      error: `La fecha debe ser posterior al ${basePrev}.`,
       invalidDate: true,
     };
   }
@@ -211,15 +222,17 @@ function planReschedule({ db, review, targetDate, examDate, maxPerDay = 3 }) {
   const limit = hardEnd || addDays(targetDate, 365);
   const firstInterval = Math.max(1, review.interval_days || 3);
 
-  const firstSlot = findSlot({
-    start: targetDate,
-    intervalDays: firstInterval,
-    minDate,
-    maxDateLimit: limit,
-    occ,
-    topicId: review.topic_id,
-    maxPerDay,
-  });
+  const firstSlot = exactDate
+    ? { date: targetDate, moved: false, direction: null, days: 0 }
+    : findSlot({
+        start: targetDate,
+        intervalDays: firstInterval,
+        minDate,
+        maxDateLimit: limit,
+        occ,
+        topicId: review.topic_id,
+        maxPerDay,
+      });
 
   if (!firstSlot) {
     return { error: 'No hay hueco disponible antes de la fecha del examen.', noSlot: true };

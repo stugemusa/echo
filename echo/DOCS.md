@@ -65,7 +65,13 @@ HTTPS.
 
 - **Planificar a mano**: en la vista diaria, **Planificar repaso** reserva un repaso en cualquier día futuro sin registrar un estudio.
 - **Cambiar la fecha**: recalcula toda la cadena posterior del tema.
-- **Eliminar**: la papelera de cada repaso pendiente (o **Eliminar** al cambiar la fecha) borra ese repaso con confirmación. Los días futuros no permiten registrar estudio.
+- **Eliminar**: la papelera de cada repaso pendiente (o **Eliminar** al cambiar la fecha) borra ese repaso con confirmación.
+- **Deshacer un estudio**: desde el Historial, el botón de deshacer devuelve el repaso a pendiente y recalcula la cadena.
+- Los días futuros no permiten registrar estudio.
+
+## Móvil
+
+La interfaz se adapta sola: en pantallas pequeñas el mes usa números grandes y puntos de color por día, y la agenda diaria muestra los temas con botones táctiles.
 
 ## Señales
 

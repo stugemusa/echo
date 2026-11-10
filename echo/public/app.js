@@ -45,6 +45,7 @@
     move: { review: null },
     plan: { date: '' },
     deleting: null,
+    undoing: null,
     pendingConfirm: null,
     previewSeq: 0,
     movePreviewSeq: 0,
@@ -508,7 +509,6 @@
     renderSidebar();
     renderCalendar();
     renderRail();
-    renderSignalNudge();
   }
 
   /* ------------------------------------------------------------------ */
@@ -561,7 +561,7 @@
 
   const SIGNAL_NUDGES = {
     none: [
-      'Todavía no hay ninguna señal. Cuando llegue la primera, aquí verás cuánto tiempo pasa desde ella.',
+      'Todavía sin señales.',
     ],
     today: [
       'La señal de hoy ya está aquí. El ciclo empieza de nuevo.',
@@ -590,9 +590,7 @@
   };
 
   function signalNudgeCopy(signal) {
-    if (!signal?.last) {
-      return { tone: 'is-calm', text: SIGNAL_NUDGES.none[0] };
-    }
+    if (!signal?.last) return SIGNAL_NUDGES.none[0];
     const days = Math.max(0, signal.daysSince || 0);
     let tier = 'early';
     if (days === 0) tier = 'today';
@@ -601,41 +599,7 @@
     else if (days <= 34) tier = 'late';
     else tier = 'overdue';
     const list = SIGNAL_NUDGES[tier];
-    const text = list[days % list.length].replace('{d}', days);
-    const tone = days === 0 ? 'is-calm' : days <= 3 ? 'is-calm' : days <= 13 ? 'is-warm' : 'is-alert';
-    return { tone, text };
-  }
-
-  function renderSignalNudge() {
-    const box = $('#signalNudge');
-    if (!box) return;
-    const signal = state.overview?.signal;
-    if (!signal) {
-      box.hidden = true;
-      return;
-    }
-
-    const copy = signalNudgeCopy(signal);
-    const meta = signal.last
-      ? `Última señal: ${formatMediumDate(signal.last.date)} · ${signal.total} ${plural(signal.total, 'señal', 'señales')}`
-      : 'Sin señales registradas todavía';
-    const action = isAdmin()
-      ? `<button type="button" class="btn btn-ghost btn-sm nudge-action" data-action="mark-signal">
-           <svg class="icon icon-sm"><use href="#i-heart"></use></svg>
-           <span>Dejar señal</span>
-         </button>`
-      : '';
-
-    box.hidden = false;
-    box.className = `signal-nudge ${copy.tone}`;
-    box.innerHTML = `
-      <span class="signal-nudge-emoji">${esc(signal.currentSymbol || '♡')}</span>
-      <span class="signal-nudge-copy">
-        <strong>${esc(copy.text)}</strong>
-        <span>${esc(meta)}</span>
-      </span>
-      ${action}
-    `;
+    return list[days % list.length].replace('{d}', days);
   }
 
   function renderSidebar() {
@@ -660,7 +624,7 @@
       `;
     }
 
-    $('#sidebarFootText').textContent = `Sincronizado · v${state.version || state.settings?.version || '1.1'}`;
+    $('#sidebarFootText').textContent = `Sincronizado · v${state.version || state.settings?.version || '1.2'}`;
     const dot = $('#connectionDot');
     dot.classList.toggle('is-offline', !navigator.onLine);
   }
@@ -773,18 +737,22 @@
     `;
 
     const signal = overview.signal;
+    const nudge = signalNudgeCopy(signal);
     const signalCard = `
       <section class="signal-card is-quiet">
         <div class="signal-top">
           <span class="signal-emoji ${signal?.last ? '' : 'is-empty'}">${esc(signal?.currentSymbol || '♡')}</span>
           <div class="signal-copy">
-            ${signal?.last
-              ? `<strong>${signal.daysSince === 0 ? 'El corazón es de hoy' : `Hace ${signal.daysSince} ${plural(signal.daysSince, 'día', 'días')}`}</strong>
-                 <span>desde la última señal</span>`
-              : `<strong>Todavía sin señales</strong>
-                 <span>el tiempo empezará a contar</span>`}
+            <strong>${esc(nudge)}</strong>
+            <span>${signal?.last ? `Última señal · ${esc(formatMediumDate(signal.last.date))}` : 'aquí verás el tiempo transcurrido'}</span>
           </div>
         </div>
+        ${isAdmin() ? `
+          <button type="button" class="btn btn-ghost btn-sm signal-mark" data-action="mark-signal">
+            <svg class="icon icon-sm"><use href="#i-heart"></use></svg>
+            <span>Dejar señal</span>
+          </button>
+        ` : ''}
       </section>
     `;
 
@@ -932,6 +900,14 @@
       const count = pending.length;
       const countLabel = count > 0 ? `${count}/${MAX_PER_DAY}` : done.length ? `${done.length}✓` : '';
       const countClass = count >= MAX_PER_DAY ? 'is-full' : count === 0 ? 'is-done-only' : '';
+      const dots = ordered
+        .slice(0, 3)
+        .map((reviewItem) => {
+          if (reviewItem.status === 'done') return '<i class="is-done"></i>';
+          if (reviewItem.dueDate < today) return '<i class="is-overdue"></i>';
+          return '<i class="is-pending"></i>';
+        })
+        .join('') + (ordered.length > 3 ? `<i class="is-more">+${ordered.length - 3}</i>` : '');
       const label = [
         formatLongDate(date),
         count ? `${count} repasos pendientes` : done.length ? `${done.length} completados` : 'sin repasos',
@@ -948,6 +924,7 @@
             ${visible.map((review) => reviewChip(review, today)).join('')}
             ${extra > 0 ? `<span class="day-more">+${extra} más</span>` : ''}
           </span>
+          ${dots ? `<span class="day-dots" aria-hidden="true">${dots}</span>` : ''}
           ${marksHtml(day.marks)}
         </div>
       `;
@@ -1621,6 +1598,58 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Modal: deshacer estudio                                             */
+  /* ------------------------------------------------------------------ */
+
+  function openUndo(button) {
+    const id = Number(button.dataset.undoReview);
+    if (!id) return;
+    state.undoing = {
+      id,
+      code: button.dataset.undoCode || 'el tema',
+      date: button.dataset.undoDate || '',
+    };
+    $('#undoIntro').textContent = state.undoing.date
+      ? `Se deshará el estudio de ${state.undoing.code} registrado el ${formatMediumDate(state.undoing.date)}.`
+      : `Se deshará el estudio de ${state.undoing.code}.`;
+    $('#undoError').textContent = '';
+    showDialog($('#undoDialog'));
+  }
+
+  async function confirmUndo() {
+    const target = state.undoing;
+    if (!target) return;
+    const button = $('#undoConfirm');
+    const errorBox = $('#undoError');
+    errorBox.textContent = '';
+    setBusy(button, true);
+    try {
+      const result = await api(`/api/reviews/${target.id}/undo`, { method: 'POST', body: {} });
+      closeDialog($('#undoDialog'));
+      state.undoing = null;
+      toast(
+        result.restoredDate
+          ? `Estudio deshecho. ${target.code} vuelve a estar pendiente el ${formatMediumDate(result.restoredDate)}.`
+          : `Estudio de ${target.code} deshecho.`
+      );
+      state.historyDirty = true;
+      state.settingsDirty = true;
+      await refreshAfterMutation().catch((error) => toast(error.message, 'error'));
+    } catch (error) {
+      if (error.status === 404) {
+        closeDialog($('#undoDialog'));
+        state.undoing = null;
+        toast('Ese estudio ya no existía.', 'amber');
+        await refreshAfterMutation().catch(() => {});
+        return;
+      }
+      errorBox.textContent = error.message;
+    } finally {
+      setBusy(button, false);
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Modal: colisiones                                                   */
   /* ------------------------------------------------------------------ */
 
@@ -1732,11 +1761,16 @@
       const timeline = topic.done.map((review, index) => `
         <li class="timeline-item ${index === 0 ? 'is-first' : ''}">
           <span class="timeline-dot"></span>
-          <div class="timeline-head">
-            <strong>${esc(formatMediumDate(review.completedOn))}</strong>
-            <span>repaso de ${review.intervalDays} días · programado ${esc(formatShortDate(review.dueDate))}</span>
+          <div class="timeline-main">
+            <div class="timeline-head">
+              <strong>${esc(formatMediumDate(review.completedOn))}</strong>
+              <span>repaso de ${review.intervalDays} días · programado ${esc(formatShortDate(review.dueDate))}</span>
+            </div>
+            ${review.comments ? `<p class="timeline-note">${esc(review.comments)}</p>` : ''}
           </div>
-          ${review.comments ? `<p class="timeline-note">${esc(review.comments)}</p>` : ''}
+          <button type="button" class="icon-btn is-danger timeline-undo" data-undo-review="${review.id}" data-undo-code="${esc(topic.code)}" data-undo-date="${esc(review.completedOn || review.dueDate)}" title="Deshacer este estudio" aria-label="Deshacer el estudio del ${esc(formatMediumDate(review.completedOn))}">
+            <svg class="icon"><use href="#i-undo"></use></svg>
+          </button>
         </li>
       `).join('');
 
@@ -2284,6 +2318,14 @@ automation:
         return;
       }
 
+      const undoReview = event.target.closest('[data-undo-review]');
+      if (undoReview) {
+        event.preventDefault();
+        event.stopPropagation();
+        openUndo(undoReview);
+        return;
+      }
+
       const deleteReview = event.target.closest('[data-delete-review]');
       if (deleteReview) {
         const review = findReviewInState(deleteReview.dataset.deleteReview);
@@ -2412,6 +2454,9 @@ automation:
 
     // Eliminar repaso
     $('#deleteConfirm').addEventListener('click', confirmDelete);
+
+    // Deshacer estudio
+    $('#undoConfirm').addEventListener('click', confirmUndo);
 
     // Planificar repaso
     $('#planForm').addEventListener('submit', submitPlan);

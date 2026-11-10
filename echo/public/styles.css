@@ -2680,7 +2680,28 @@ h3 {
 
 .timeline-item {
   position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   padding: 0 0 15px 22px;
+}
+
+.timeline-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.timeline-undo {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.timeline-item:hover .timeline-undo,
+.timeline-item:focus-within .timeline-undo {
+  opacity: 1;
 }
 
 .timeline-item:last-child {
@@ -3982,117 +4003,9 @@ body[data-view="settings"] .fab {
 }
 
 @media (max-width: 640px) {
-  .month-grid {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-  }
-
-  .weekday-cell {
-    padding: 8px 2px;
-    text-align: center;
-    font-size: 7.5px;
-    letter-spacing: 0.06em;
-  }
-
-  .month-cell {
-    min-height: 74px;
-    padding: 3px 3px 14px;
-  }
-
-  .day-top {
-    margin-bottom: 3px;
-    min-height: 17px;
-  }
-
-  .day-num {
-    min-width: 17px;
-    height: 17px;
-    border-radius: 5px;
-    font-size: 9.5px;
-  }
-
-  .month-cell.is-today .day-num {
-    box-shadow: none;
-  }
-
-  .day-count {
-    padding: 0 3px;
-    font-size: 6.5px;
-    background: transparent;
-  }
-
-  .month-cell.has-load .day-count {
-    background: var(--bg);
-  }
-
-  .day-count.is-full {
-    background: var(--amber-bg);
-  }
-
-  .day-reviews {
-    gap: 2px;
-  }
-
-  .month-cell .review-chip {
-    height: 4px;
-    padding: 0;
-    border: 0;
-    border-radius: 2px;
-    background: var(--green-400);
-    font-size: 0;
-    overflow: hidden;
-  }
-
-  .month-cell .review-chip .chip-code,
-  .month-cell .review-chip .chip-int,
-  .month-cell .review-chip .icon {
-    display: none;
-  }
-
-  .month-cell .review-chip.is-done {
-    background: #dbe3ec;
-  }
-
-  .month-cell .review-chip.is-overdue {
-    background: #e8a54a;
-  }
-
-  .month-cell .review-chip:hover {
-    box-shadow: none;
-  }
-
-  .day-more {
-    display: none;
-  }
-
-  .day-marks {
-    right: 2px;
-    bottom: 1px;
-    font-size: 8px;
-    max-width: calc(100% - 4px);
-  }
-
-  .day-marks .mark.is-broken {
-    font-size: 6.5px;
-  }
-
   .cal-toolbar {
     padding: 8px 10px;
     gap: 8px;
-  }
-
-  .cal-nav {
-    gap: 4px;
-  }
-
-  .cal-nav .icon-btn {
-    width: 31px;
-    height: 31px;
-  }
-
-  .seg-item {
-    height: 28px;
-    padding: 0 9px;
-    font-size: 10.5px;
   }
 
   .calendar-card {
@@ -4176,68 +4089,12 @@ body[data-view="settings"] .fab {
   white-space: nowrap;
 }
 
-.signal-nudge {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0 0 14px;
-  padding: 9px 14px;
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-sm);
-  background: var(--paper);
-  color: var(--faint);
-  transition: background 0.3s var(--ease), border-color 0.3s var(--ease);
-}
-
-.signal-nudge.is-calm {
-  opacity: 0.86;
-}
-
-.signal-nudge.is-warm {
-  border-color: var(--amber-line);
-  background: var(--amber-bg);
-}
-
-.signal-nudge.is-alert {
-  border-color: var(--red-line);
-  background: var(--red-bg);
-}
-
-.signal-nudge-emoji {
-  font-size: 17px;
-  line-height: 1;
-  letter-spacing: -1px;
-  flex: 0 0 auto;
-}
-
-.signal-nudge-copy {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.signal-nudge-copy strong {
-  display: block;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--muted);
-}
-
-.signal-nudge.is-alert .signal-nudge-copy strong {
-  color: var(--red);
-}
-
-.signal-nudge-copy > span {
-  display: block;
-  margin-top: 1px;
-  font-size: 9.5px;
-  color: var(--faint);
-  font-variant-numeric: tabular-nums;
-}
-
-.signal-nudge .nudge-action {
-  flex: 0 0 auto;
+.signal-mark {
+  width: 100%;
   height: 30px;
+  margin-top: 8px;
   font-size: 11px;
+  opacity: 0.9;
 }
 
 .day-empty-actions {
@@ -4247,18 +4104,184 @@ body[data-view="settings"] .fab {
   gap: 8px;
 }
 
+/* --------------------------------------------------------------------------
+   Vista móvil del calendario
+   -------------------------------------------------------------------------- */
+
+.day-dots {
+  display: none;
+}
+
 @media (max-width: 640px) {
-  .signal-nudge {
-    margin-bottom: 10px;
-    padding: 8px 11px;
-    gap: 9px;
+  .month-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 
-  .signal-nudge-copy strong {
+  .weekday-cell {
+    padding: 10px 0;
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 0.03em;
+  }
+
+  .month-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 58px;
+    padding: 6px 6px 8px;
+  }
+
+  .day-top {
+    margin-bottom: 0;
+    min-height: 0;
+  }
+
+  .day-num {
+    min-width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    font-size: 13.5px;
+  }
+
+  .month-cell.is-today .day-num {
+    box-shadow: 0 3px 8px -3px rgba(0, 122, 51, 0.5);
+  }
+
+  .day-count {
+    display: none;
+  }
+
+  .day-reviews,
+  .day-more {
+    display: none;
+  }
+
+  .day-dots {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: auto;
+    padding-top: 5px;
+  }
+
+  .day-dots i {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--green-500);
+  }
+
+  .day-dots i.is-done {
+    background: #cbd5e1;
+  }
+
+  .day-dots i.is-overdue {
+    background: #e8a54a;
+  }
+
+  .day-dots i.is-more {
+    width: auto;
+    height: auto;
+    border-radius: 0;
+    background: none;
+    font-size: 8.5px;
+    font-weight: 650;
+    color: var(--faint);
+  }
+
+  .day-marks {
+    right: 4px;
+    bottom: 5px;
+    font-size: 12px;
+    max-width: calc(100% - 8px);
+  }
+
+  .day-marks .mark.is-broken {
+    font-size: 9px;
+  }
+
+  .month-cell.is-out .day-dots i {
+    opacity: 0.45;
+  }
+
+  .month-cell.is-out .day-marks {
+    opacity: 0.5;
+  }
+
+  .cal-toolbar {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .cal-nav {
+    gap: 4px;
+  }
+
+  .cal-nav .icon-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .seg-item {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+
+  .signal-card.is-quiet {
+    opacity: 1;
+    padding: 10px 12px;
+  }
+
+  .signal-card.is-quiet .signal-copy strong {
+    font-size: 12px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Táctil y tipografía en pantallas pequeñas
+   -------------------------------------------------------------------------- */
+
+@media (hover: none) {
+  .timeline-undo {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 860px) {
+  .agenda-actions .icon-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .agenda-main strong {
+    font-size: 13.5px;
+  }
+
+  .agenda-main > span {
     font-size: 11px;
   }
 
-  .signal-nudge .nudge-action {
-    display: none;
+  .agenda-label {
+    font-size: 10.5px;
+  }
+
+  .timeline-head strong {
+    font-size: 12.5px;
+  }
+
+  .timeline-head span {
+    font-size: 10px;
+  }
+
+  .timeline-note {
+    font-size: 11.5px;
+  }
+
+  .timeline-undo {
+    width: 34px;
+    height: 34px;
+    opacity: 1;
   }
 }
