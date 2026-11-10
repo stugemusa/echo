@@ -938,4 +938,180 @@ router.get('/export', (req, res) => {
   res.send(JSON.stringify(payload, null, 2));
 });
 
+/* ------------------------------------------------------------------ */
+/* Mantenimiento: reset y restauración (solo administración)           */
+/* ------------------------------------------------------------------ */
+
+function cleanIso(value) {
+  return isValidISO(value) ? value : null;
+}
+
+function emptyData() {
+  db.prepare('DELETE FROM reviews').run();
+  db.prepare('DELETE FROM topics').run();
+  db.prepare('DELETE FROM signals').run();
+  try {
+    db.prepare("DELETE FROM sqlite_sequence WHERE name IN ('topics', 'reviews', 'signals')").run();
+  } catch (_) {
+    // La tabla sqlite_sequence solo existe si hay columnas AUTOINCREMENT.
+  }
+}
+
+function dataCounts() {
+  return {
+    topics: db.prepare('SELECT COUNT(*) AS count FROM topics').get().count,
+    reviews: db.prepare('SELECT COUNT(*) AS count FROM reviews').get().count,
+    pending: db.prepare("SELECT COUNT(*) AS count FROM reviews WHERE status = 'pending'").get().count,
+    signals: db.prepare('SELECT COUNT(*) AS count FROM signals').get().count,
+  };
+}
+
+const MAX_INTERVAL_DAYS = 3650;
+
+/** Vacía los datos de estudio. Por defecto conserva la fecha del examen. */
+router.post('/reset', auth.requireAdmin, (req, res) => {
+  const keepSettings = req.body?.keep_settings !== false;
+
+  db.transaction(() => {
+    emptyData();
+    if (!keepSettings) {
+      db.prepare("DELETE FROM settings WHERE key IN ('exam_date', 'max_per_day')").run();
+    }
+  })();
+
+  res.json({
+    ok: true,
+    keepSettings,
+    counts: dataCounts(),
+    examDate: getExamDate(),
+    maxPerDay: getMaxPerDay(),
+  });
+});
+
+/**
+ * Restaura una copia (JSON de /api/export, o el mismo formato generado desde
+ * un CSV). Reemplaza por completo los datos actuales.
+ */
+router.post('/restore', auth.requireAdmin, (req, res) => {
+  const raw = req.body?.data ?? req.body;
+  const payload = typeof raw === 'string' ? (() => {
+    try {
+      return JSON.parse(raw);
+    } catch (_) {
+      return null;
+    }
+  })() : raw;
+
+  if (!payload || typeof payload !== 'object') {
+    return res.status(400).json({ error: 'invalid_backup', message: 'El archivo no es una copia válida de Echo.' });
+  }
+  if (!Array.isArray(payload.topics) || !Array.isArray(payload.reviews)) {
+    return res.status(400).json({
+      error: 'invalid_backup',
+      message: 'La copia no contiene temas y repasos. Usa el JSON de «Exportar copia».',
+    });
+  }
+  if (payload.topics.length > 5000 || payload.reviews.length > 200000) {
+    return res.status(400).json({ error: 'too_large', message: 'La copia es demasiado grande.' });
+  }
+
+  const timestamp = new Date().toISOString();
+
+  let result;
+  try {
+    result = db.transaction(() => {
+      emptyData();
+
+      const insertTopic = db.prepare('INSERT INTO topics (code, created_at, updated_at) VALUES (?, ?, ?)');
+      const idMap = new Map();
+      const codeMap = new Map();
+      let topicsIn = 0;
+
+      for (const topic of payload.topics) {
+        if (!topic || typeof topic !== 'object') continue;
+        const code = cleanCode(topic.code);
+        if (!code) continue;
+        const key = code.toLowerCase();
+        if (codeMap.has(key)) {
+          if (topic.id !== undefined) idMap.set(Number(topic.id), codeMap.get(key));
+          continue;
+        }
+        const created = cleanIso(topic.created_at) || timestamp;
+        const updated = cleanIso(topic.updated_at) || created;
+        const info = insertTopic.run(code, created, updated);
+        const newId = Number(info.lastInsertRowid);
+        codeMap.set(key, newId);
+        if (topic.id !== undefined && topic.id !== null) idMap.set(Number(topic.id), newId);
+        topicsIn += 1;
+      }
+
+      const insertReview = db.prepare(
+        `INSERT INTO reviews
+           (topic_id, due_date, interval_days, status, completed_on, comments, origin, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      );
+      let reviewsIn = 0;
+      for (const review of payload.reviews) {
+        if (!review || typeof review !== 'object') continue;
+        const due = cleanIso(review.due_date);
+        if (!due) continue;
+        const byCode = review.topic_code ? codeMap.get(String(review.topic_code).trim().toLowerCase()) : null;
+        const byId = review.topic_id !== undefined ? idMap.get(Number(review.topic_id)) : null;
+        const topicId = byCode || byId;
+        if (!topicId) continue;
+
+        const status = review.status === 'done' ? 'done' : 'pending';
+        const completed = status === 'done' ? cleanIso(review.completed_on) || due : null;
+        const origin = ['auto', 'manual', 'initial'].includes(review.origin) ? review.origin : 'auto';
+        const rawInterval = Number(review.interval_days);
+        const interval = Number.isFinite(rawInterval) ? Math.min(MAX_INTERVAL_DAYS, Math.max(0, Math.round(rawInterval))) : 0;
+        const created = cleanIso(review.created_at) || timestamp;
+        const updated = cleanIso(review.updated_at) || created;
+        const comments = review.comments ? String(review.comments).slice(0, 2000) : null;
+
+        insertReview.run(topicId, due, interval, status, completed, comments, origin, created, updated);
+        reviewsIn += 1;
+      }
+
+      const insertSignal = db.prepare('INSERT INTO signals (date, received_at, source, note) VALUES (?, ?, ?, ?)');
+      let signalsIn = 0;
+      for (const signal of Array.isArray(payload.signals) ? payload.signals : []) {
+        if (!signal || typeof signal !== 'object') continue;
+        const date = cleanIso(signal.date);
+        if (!date) continue;
+        const received = typeof signal.received_at === 'string' && signal.received_at ? signal.received_at : timestamp;
+        const source = signal.source ? String(signal.source).slice(0, 40) : 'restore';
+        const note = signal.note ? String(signal.note).slice(0, 500) : null;
+        insertSignal.run(date, received, source, note);
+        signalsIn += 1;
+      }
+
+      const settings = payload.settings && typeof payload.settings === 'object' ? payload.settings : {};
+      if (settings.examDate !== undefined) {
+        const value = String(settings.examDate || '').trim();
+        setSetting('exam_date', isValidISO(value) ? value : '');
+      }
+      if (settings.maxPerDay !== undefined) {
+        const value = Number(settings.maxPerDay);
+        if (Number.isFinite(value) && value >= 1 && value <= 3) {
+          setSetting('max_per_day', String(Math.round(value)));
+        }
+      }
+
+      return { topicsIn, reviewsIn, signalsIn };
+    })();
+  } catch (err) {
+    console.error('[echo] Error restaurando copia:', err);
+    return res.status(400).json({ error: 'restore_failed', message: 'No se pudo restaurar la copia.' });
+  }
+
+  res.json({
+    ok: true,
+    restored: result,
+    counts: dataCounts(),
+    examDate: getExamDate(),
+    maxPerDay: getMaxPerDay(),
+  });
+});
+
 module.exports = router;

@@ -52,7 +52,15 @@ Activa `ssl` para que el add-on sirva HTTPS reutilizando el certificado de DuckD
 
 La base de datos vive en `/data/echo.db`, dentro del volumen persistente del
 add-on. Las copias de seguridad de Home Assistant la incluyen si el add-on está
-incluido en la copia. También puedes exportar JSON/CSV desde **Ajustes**.
+incluido en la copia.
+
+Desde **Ajustes → Datos, copias y restauración** (solo administración):
+
+- **Exportar**: copia JSON completa, CSV de repasos o PDF.
+- **Restaurar**: elige un JSON de Echo o un CSV. Muestra un resumen y reemplaza
+  los datos actuales tras confirmar. El CSV no incluye señales ni fecha del examen.
+- **Empezar de cero**: borra temas, repasos y señales. Puedes conservar la fecha
+  del examen y el máximo diario.
 
 ## HTTP y PWA
 

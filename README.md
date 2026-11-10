@@ -36,6 +36,7 @@ Está pensada para ejecutarse en **Home Assistant OS** sobre una Raspberry Pi, c
 - **Planificación manual**: reserva un repaso en cualquier día futuro sin registrar un estudio.
 - **API externa** `POST /api/signal` protegida con token, ideal para automatizaciones de Home Assistant.
 - **Exportación** a JSON y CSV, y vista de impresión limpia para PDF.
+- **Restauración y reset** desde Ajustes: recupera una copia (JSON o CSV) o empieza de cero sin tocar el servidor.
 - **Acceso con PIN** y cookie de sesión firmada (30 días).
 - **PWA instalable** con service worker y lectura offline de los últimos datos.
 - **HTTPS opcional**: sirve Echo por TLS reutilizando el certificado de DuckDNS/Let's Encrypt de Home Assistant.
@@ -419,6 +420,8 @@ Todas las rutas, salvo `/api/auth`, `/api/session`, `/api/health` y `/api/signal
 | `PUT` | `/api/settings` | usuario | Guarda la fecha de examen (el máximo diario solo lo cambia el administrador). |
 | `POST` | `/api/signals` | **admin** | Marca la señal de hoy desde la interfaz. |
 | `GET` | `/api/export?format=json\|csv` | usuario | Copia de seguridad completa o CSV de repasos. |
+| `POST` | `/api/reset` | **admin** | Vacía los datos de estudio (`keep_settings` conserva examen y máximo diario). |
+| `POST` | `/api/restore` | **admin** | Restaura una copia (mismo formato que la exportación JSON). Reemplaza todo. |
 | `POST` | `/api/signal` | — | API externa protegida por `API_TOKEN`. |
 
 Si `POST /api/studies` o `PATCH /api/reviews/:id` detectan colisiones, responden `409` con `requiresConfirmation: true`, la lista de `collisions` y un `preview` del plan. Reenvía la misma petición con `"confirm": true` para aplicarlo. `POST /api/plan` responde `409` con `suggestedDate` cuando el día está completo.
@@ -463,14 +466,23 @@ repo/
 
 ---
 
-## Copias de seguridad
+## Copias de seguridad, restauración y reset
 
-- **Automática:** copia el archivo `data/echo.db` (o `/data/echo.db` en el add-on). Los archivos `-wal` y `-shm` aparecen junto a la base de datos mientras está en uso; para una copia en caliente, usa la exportación JSON desde Ajustes.
-- **Manual desde la app:** Ajustes → **JSON** descarga un volcado completo (ajustes, temas, repasos, señales y estadísticas).
+En **Ajustes → Datos, copias y restauración**:
+
+- **Copia JSON:** descarga un volcado completo (ajustes, temas, repasos y señales). Es el formato bueno para restaurar.
 - **CSV:** útil para abrir la planificación y el historial en una hoja de cálculo.
 - **Imprimir / PDF:** genera una vista limpia con la planificación pendiente y el historial completo.
+- **Restaurar:** elige un archivo **JSON** (copia de Echo) o un **CSV** de repasos. Antes de tocar nada te muestra un resumen (temas, repasos completados y pendientes, señales) y pide confirmación. La restauración **reemplaza** los datos actuales.
+  - El JSON restaura todo, incluida la fecha del examen y las señales.
+  - El CSV solo contiene temas y repasos (no tiene señales ni la fecha del examen).
+- **Empezar de cero:** borra todos los temas, repasos y señales. Puedes conservar la fecha del examen y el máximo diario (marcado por defecto).
 
-Para restaurar un JSON necesitarías importarlo en una instalación nueva mediante SQLite; el formato está documentado y es estable. Si necesitas un importador, abre una issue.
+Todo esto es solo para el perfil de administración, y tanto el reset como la restauración piden confirmación porque reemplazan datos.
+
+### Copia del archivo SQLite
+
+Para una copia «en frío», copia `data/echo.db` (o `/data/echo.db` en el add-on). Mientras la app está en marcha aparecen también `-wal` y `-shm`: para una copia en caliente, lo más seguro es la **Copia JSON** desde Ajustes.
 
 ---
 

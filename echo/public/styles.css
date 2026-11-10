@@ -3029,6 +3029,87 @@ pre.code-block .tok-str {
   font-size: 11px;
 }
 
+.setting-sub {
+  margin: 16px 0 7px;
+  font-size: 8.5px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.danger-zone {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid var(--red-line);
+  border-radius: 11px;
+  background: #fffafa;
+}
+
+.danger-title {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 8.5px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--red);
+}
+
+.danger-zone .hint {
+  margin: 0 0 10px;
+}
+
+.check-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 12px 0 4px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.check-line input {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  accent-color: var(--green-600);
+}
+
+.restore-summary {
+  display: grid;
+  gap: 1px;
+  margin: 12px 0 4px;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.restore-summary li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 11px;
+  background: var(--paper);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.restore-summary li:nth-child(even) {
+  background: #fbfcfd;
+}
+
+.restore-summary strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
 .status-line {
   display: flex;
   align-items: center;

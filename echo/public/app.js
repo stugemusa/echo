@@ -46,6 +46,7 @@
     plan: { date: '' },
     deleting: null,
     undoing: null,
+    restore: null,
     pendingConfirm: null,
     previewSeq: 0,
     movePreviewSeq: 0,
@@ -2008,17 +2009,37 @@ automation:
         <div class="setting-head">
           <span class="setting-icon"><svg class="icon"><use href="#i-download"></use></svg></span>
           <div>
-            <h3>Copias de seguridad y exportación</h3>
-            <p>Lleva tu planificación e historial contigo.</p>
+            <h3>Datos, copias y restauración</h3>
+            <p>Exporta, restaura una copia o empieza de cero.</p>
           </div>
         </div>
-        <div class="setting-row"><span>Temas · repasos · pendientes</span><strong>${overview.totals.topics} · ${overview.totals.done} · ${overview.totals.pending}</strong></div>
+        <div class="setting-row"><span>Temas · repasos · pendientes · señales</span><strong>${overview.totals.topics} · ${overview.totals.done + overview.totals.pending} · ${overview.totals.pending} · ${signal?.total || 0}</strong></div>
         <div class="setting-row"><span>Almacenamiento</span><strong>${esc(settings.storage)}</strong></div>
-        <div class="setting-row"><span>Señales registradas</span><strong>${signal?.total || 0}</strong></div>
+
+        <p class="setting-sub">Exportar</p>
         <div class="settings-actions">
-          <button type="button" class="btn btn-ghost" data-action="export-json"><svg class="icon icon-sm"><use href="#i-download"></use></svg> JSON</button>
+          <button type="button" class="btn btn-ghost" data-action="export-json"><svg class="icon icon-sm"><use href="#i-download"></use></svg> Copia JSON</button>
           <button type="button" class="btn btn-ghost" data-action="export-csv"><svg class="icon icon-sm"><use href="#i-download"></use></svg> CSV</button>
           <button type="button" class="btn btn-ghost" data-action="print"><svg class="icon icon-sm"><use href="#i-printer"></use></svg> Imprimir / PDF</button>
+        </div>
+
+        <p class="setting-sub">Restaurar</p>
+        <p class="hint">Acepta la copia JSON de Echo o el CSV de repasos. La restauración <strong>reemplaza</strong> los datos actuales.</p>
+        <div class="settings-actions">
+          <button type="button" class="btn btn-soft" data-action="pick-backup">
+            <svg class="icon icon-sm"><use href="#i-upload"></use></svg>
+            Elegir archivo…
+          </button>
+          <input type="file" id="backupFile" accept=".json,.csv,application/json,text/csv" hidden>
+        </div>
+
+        <div class="danger-zone">
+          <span class="danger-title">Zona delicada</span>
+          <p class="hint">Borra todos los temas, repasos y señales para empezar de cero.</p>
+          <button type="button" class="btn btn-danger" data-action="open-reset">
+            <svg class="icon icon-sm"><use href="#i-trash"></use></svg>
+            Empezar de cero
+          </button>
         </div>
       </section>
     `;
@@ -2221,6 +2242,209 @@ automation:
         // noop
       }
     }, 500);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Mantenimiento: reset y restauración                                 */
+  /* ------------------------------------------------------------------ */
+
+  function openReset() {
+    const totals = state.overview?.totals || { topics: 0, done: 0, pending: 0 };
+    $('#resetIntro').textContent = `Se borrarán ${totals.topics} ${plural(totals.topics, 'tema', 'temas')}, ${totals.done + totals.pending} ${plural(totals.done + totals.pending, 'repaso', 'repasos')} y todas las señales.`;
+    $('#resetKeepSettings').checked = true;
+    $('#resetError').textContent = '';
+    showDialog($('#resetDialog'));
+  }
+
+  async function confirmReset() {
+    const button = $('#resetConfirm');
+    const errorBox = $('#resetError');
+    errorBox.textContent = '';
+    setBusy(button, true);
+    try {
+      await api('/api/reset', {
+        method: 'POST',
+        body: { keep_settings: $('#resetKeepSettings').checked },
+      });
+      closeDialog($('#resetDialog'));
+      toast('Base de datos vacía. Listo para empezar.');
+      await refreshAfterMutation().catch((error) => toast(error.message, 'error'));
+    } catch (error) {
+      errorBox.textContent = error.message;
+    } finally {
+      setBusy(button, false);
+    }
+  }
+
+  /** Convierte un CSV de repasos en el mismo formato que la copia JSON. */
+  function parseCsvRows(text) {
+    const rows = [];
+    let row = [];
+    let field = '';
+    let quoted = false;
+    const source = text.replace(/^\uFEFF/, '');
+    for (let index = 0; index < source.length; index += 1) {
+      const char = source[index];
+      if (quoted) {
+        if (char === '"') {
+          if (source[index + 1] === '"') {
+            field += '"';
+            index += 1;
+          } else {
+            quoted = false;
+          }
+        } else {
+          field += char;
+        }
+      } else if (char === '"') {
+        quoted = true;
+      } else if (char === ',') {
+        row.push(field);
+        field = '';
+      } else if (char === '\n') {
+        row.push(field);
+        rows.push(row);
+        row = [];
+        field = '';
+      } else if (char !== '\r') {
+        field += char;
+      }
+    }
+    if (field.length || row.length) {
+      row.push(field);
+      rows.push(row);
+    }
+    return rows.filter((cells) => cells.some((cell) => String(cell).trim() !== ''));
+  }
+
+  function backupFromCsv(text) {
+    const rows = parseCsvRows(text);
+    if (!rows.length) throw new Error('El CSV está vacío.');
+    const header = rows[0].map((cell) => String(cell).trim().toLowerCase());
+    const column = (...names) => header.findIndex((name) => names.some((candidate) => name.startsWith(candidate)));
+    const iTopic = column('tema');
+    const iDue = column('fecha planificada', 'fecha');
+    const iStatus = column('estado');
+    const iDone = column('fecha completado', 'completado');
+    const iInterval = column('intervalo');
+    const iNotes = column('comentario', 'nota');
+    if (iTopic < 0 || iDue < 0) {
+      throw new Error('El CSV no tiene las columnas esperadas (Tema, Fecha planificada…).');
+    }
+
+    const timestamp = new Date().toISOString();
+    const isDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+    const topics = [];
+    const byCode = new Map();
+    const reviews = [];
+
+    for (const cells of rows.slice(1)) {
+      const code = String(cells[iTopic] ?? '').trim();
+      const due = String(cells[iDue] ?? '').trim();
+      if (!code || !isDate(due)) continue;
+
+      const key = code.toLowerCase();
+      let topicId = byCode.get(key);
+      if (topicId === undefined) {
+        topicId = topics.length + 1;
+        topics.push({ id: topicId, code, created_at: timestamp, updated_at: timestamp });
+        byCode.set(key, topicId);
+      }
+
+      const statusText = iStatus >= 0 ? String(cells[iStatus] ?? '').trim().toLowerCase() : '';
+      const isDone = statusText.startsWith('complet') || statusText === 'done';
+      const completedOn = iDone >= 0 ? String(cells[iDone] ?? '').trim() : '';
+      const rawInterval = iInterval >= 0 ? Number(String(cells[iInterval] ?? '').replace(',', '.')) : 0;
+      const notes = iNotes >= 0 ? String(cells[iNotes] ?? '').trim() : '';
+
+      reviews.push({
+        topic_id: topicId,
+        due_date: due,
+        interval_days: Number.isFinite(rawInterval) ? Math.max(0, Math.round(rawInterval)) : 0,
+        status: isDone ? 'done' : 'pending',
+        completed_on: isDone && isDate(completedOn) ? completedOn : null,
+        comments: notes || null,
+        origin: 'auto',
+        created_at: timestamp,
+        updated_at: timestamp,
+      });
+    }
+
+    if (!topics.length) throw new Error('El CSV no contiene repasos válidos.');
+    return { app: 'echo', source: 'csv', settings: {}, topics, reviews, signals: [] };
+  }
+
+  function backupSummary(payload, name) {
+    const topics = Array.isArray(payload.topics) ? payload.topics : [];
+    const reviews = Array.isArray(payload.reviews) ? payload.reviews : [];
+    const signals = Array.isArray(payload.signals) ? payload.signals : [];
+    if (!topics.length && !reviews.length) {
+      throw new Error('El archivo no contiene temas ni repasos.');
+    }
+    return {
+      name,
+      topics: topics.length,
+      done: reviews.filter((review) => review && review.status === 'done').length,
+      pending: reviews.filter((review) => !review || review.status !== 'done').length,
+      signals: signals.length,
+    };
+  }
+
+  function openRestore(summary) {
+    $('#restoreIntro').textContent = `Archivo «${summary.name}». Esto es lo que contiene:`;
+    $('#restoreSummary').innerHTML = `
+      <li><span>Temas</span><strong>${summary.topics}</strong></li>
+      <li><span>Repasos completados</span><strong>${summary.done}</strong></li>
+      <li><span>Repasos pendientes</span><strong>${summary.pending}</strong></li>
+      <li><span>Señales</span><strong>${summary.signals}</strong></li>
+    `;
+    $('#restoreError').textContent = '';
+    showDialog($('#restoreDialog'));
+  }
+
+  async function handleBackupFile(file) {
+    if (!file) return;
+    const isCsv = /\.csv$/i.test(file.name);
+    try {
+      const text = await file.text();
+      let payload;
+      if (isCsv) {
+        payload = backupFromCsv(text);
+      } else {
+        try {
+          payload = JSON.parse(text);
+        } catch (_) {
+          throw new Error('El archivo no es una copia válida de Echo.');
+        }
+      }
+      const summary = backupSummary(payload, file.name);
+      state.restore = { payload };
+      openRestore(summary);
+    } catch (error) {
+      state.restore = null;
+      toast(error.message || 'No se pudo leer el archivo.', 'error');
+    }
+  }
+
+  async function confirmRestore() {
+    const payload = state.restore?.payload;
+    if (!payload) return;
+    const button = $('#restoreConfirm');
+    const errorBox = $('#restoreError');
+    errorBox.textContent = '';
+    setBusy(button, true);
+    try {
+      const result = await api('/api/restore', { method: 'POST', body: { data: payload } });
+      closeDialog($('#restoreDialog'));
+      state.restore = null;
+      const restored = result.restored || {};
+      toast(`Copia restaurada: ${restored.topicsIn || 0} temas y ${restored.reviewsIn || 0} repasos.`);
+      await refreshAfterMutation().catch((error) => toast(error.message, 'error'));
+    } catch (error) {
+      errorBox.textContent = error.message;
+    } finally {
+      setBusy(button, false);
+    }
   }
 
   /* ------------------------------------------------------------------ */
@@ -2498,6 +2722,16 @@ automation:
     // Deshacer estudio
     $('#undoConfirm').addEventListener('click', confirmUndo);
 
+    // Mantenimiento: copias
+    document.addEventListener('change', (event) => {
+      if (!event.target || event.target.id !== 'backupFile') return;
+      const file = event.target.files && event.target.files[0];
+      event.target.value = '';
+      handleBackupFile(file);
+    });
+    $('#resetConfirm').addEventListener('click', confirmReset);
+    $('#restoreConfirm').addEventListener('click', confirmRestore);
+
     // Planificar repaso
     $('#planForm').addEventListener('submit', submitPlan);
     $('#planDate').addEventListener('change', () => {
@@ -2626,6 +2860,12 @@ automation:
         break;
       case 'export-csv':
         downloadExport('csv');
+        break;
+      case 'pick-backup':
+        $('#backupFile').click();
+        break;
+      case 'open-reset':
+        openReset();
         break;
       default:
         break;
