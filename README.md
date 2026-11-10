@@ -125,6 +125,34 @@ El add-on expone el puerto `3000`. Home Assistant permite cambiar el puerto del 
 
 No necesitas Nabu Casa ni un proxy inverso para este uso. Si más adelante quieres instalarla como PWA y tener offline, la opción más sencilla es Tailscale con HTTPS o un túnel de Cloudflare; no es necesario para empezar.
 
+### Acceso directo en el móvil (sin HTTPS)
+
+Con HTTP puedes tener Echo como un icono más, a pantalla completa, sin instalar nada adicional:
+
+**Android (Chrome, Edge, Brave)**
+
+1. Abre `http://IP_DE_TU_HA:3000` en el navegador e introduce el PIN.
+2. Menú `⋮` → **Añadir a pantalla de inicio** → **Añadir**.
+3. El icono abre Echo sin barra de direcciones. Si el navegador ofrece «Instalar aplicación», ignóralo: sin HTTPS no llegará a completarse.
+
+**iPhone / iPad (Safari)**
+
+1. Abre la URL en **Safari** (en iOS sólo Safari crea el acceso directo a pantalla completa).
+2. Botón **Compartir** → **Añadir a pantalla de inicio** → **Añadir**.
+3. Se abre a pantalla completa, sin la barra de Safari.
+
+**Qué cambia respecto a una PWA instalada**
+
+| | Acceso directo por HTTP | PWA con HTTPS |
+| --- | --- | --- |
+| Icono y pantalla completa | ✅ | ✅ |
+| Datos, sesión y avisos | ✅ | ✅ |
+| Funciona sin cobertura | ❌ | ✅ |
+| Actualizaciones | Al abrir la página | En segundo plano |
+
+> **Usa siempre la misma URL.** La sesión está ligada al origen: si un día entras por `http://192.168.1.50:3000` y otro por `http://homeassistant.local:3000`, te pedirá el PIN de nuevo.
+
+
 ### Instalar con Portainer (opcional, sin publicar imagen)
 
 No hace falta subir la imagen a Docker Hub ni a ningún registro. Portainer puede clonar este repositorio y construir la imagen localmente:

@@ -1677,7 +1677,9 @@ automation:
             <p>Repaso espaciado para oposiciones · v${esc(settings.version)}</p>
           </div>
         </div>
-        <p class="hint">Echo funciona como PWA. Añádela a la pantalla de inicio de tu móvil para usarla a pantalla completa. Para instalar el service worker y trabajar offline, ábrela por HTTPS (por ejemplo, a través del proxy inverso de Home Assistant o Nabu Casa).</p>
+        <p class="hint">${window.isSecureContext
+          ? 'Echo funciona como PWA. Añádela a la pantalla de inicio para usarla a pantalla completa y también sin conexión.'
+          : 'Estás usando Echo por HTTP en tu red local. Para tenerla como icono en el móvil, abre el menú del navegador y elige «Añadir a pantalla de inicio». El modo sin conexión necesita HTTPS, pero el resto de la app funciona igual.'}</p>
         <div class="setting-row"><span>Servidor</span><strong>${settings.isAddon ? 'Home Assistant Add-on' : 'Docker'}</strong></div>
         <div class="setting-row"><span>Datos</span><strong>SQLite local</strong></div>
         <p class="footer-note">Hecho para tu memoria. Sin cuentas, sin nubes, sin ruido.</p>
@@ -2160,7 +2162,9 @@ automation:
     window.addEventListener('offline', () => {
       $('#offlinePill').hidden = false;
       $('#connectionDot')?.classList.add('is-offline');
-      toast('Sin conexión. Puedes seguir consultando los datos guardados.', 'amber');
+      toast(window.isSecureContext
+        ? 'Sin conexión. Puedes seguir consultando los datos guardados.'
+        : 'Sin conexión. Recupera la red para seguir usando Echo.', 'amber');
     });
     $('#offlinePill').hidden = navigator.onLine;
 
