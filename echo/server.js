@@ -1,5 +1,8 @@
 'use strict';
 
+const fs = require('fs');
+const http = require('http');
+const https = require('https');
 const path = require('path');
 const express = require('express');
 const config = require('./src/config');
@@ -74,14 +77,36 @@ app.use((err, req, res, next) => {
   });
 });
 
-const server = app.listen(config.port, config.host, () => {
+let server;
+let protocol = 'http';
+
+if (config.ssl) {
+  const options = {
+    cert: fs.readFileSync(config.certFile),
+    key: fs.readFileSync(config.keyFile),
+  };
+  server = https.createServer(options, app);
+  protocol = 'https';
+} else {
+  server = http.createServer(app);
+}
+
+server.listen(config.port, config.host, () => {
   console.log('');
   console.log('  Echo · Repaso espaciado');
-  console.log(`  ▸ http://localhost:${config.port}`);
+  console.log(`  ▸ ${protocol}://localhost:${config.port}`);
   console.log(`  ▸ Base de datos: ${config.dbPath}`);
   console.log(`  ▸ Entorno Home Assistant: ${config.isAddon ? 'sí' : 'no'}`);
+  if (config.ssl) {
+    console.log(`  ▸ HTTPS activo · cert: ${config.certFile} · key: ${config.keyFile}`);
+  } else {
+    console.log('  ▸ HTTP sin cifrar. Activa «ssl» en las opciones para servir HTTPS.');
+  }
   if (config.appPin === '1234') {
-    console.log('  ⚠ PIN por defecto (1234). Define APP_PIN para cambiarlo.');
+    console.log('  ⚠ PIN de usuario por defecto (1234). Define APP_PIN para cambiarlo.');
+  }
+  if (!config.adminPin) {
+    console.log('  ⚠ Sin ADMIN_PIN: el PIN de usuario también actúa como administrador.');
   }
   if (!config.apiToken) {
     console.log('  ⚠ API externa desactivada. Define API_TOKEN para habilitar /api/signal.');

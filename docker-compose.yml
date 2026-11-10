@@ -9,6 +9,7 @@ services:
       - "3000:3000"
     environment:
       APP_PIN: "${APP_PIN:-1234}"
+      ADMIN_PIN: "${ADMIN_PIN:-}"
       API_TOKEN: "${API_TOKEN:-}"
       SESSION_SECRET: "${SESSION_SECRET:-}"
       TZ: "${TZ:-Europe/Madrid}"

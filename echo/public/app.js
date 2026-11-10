@@ -18,10 +18,13 @@
   const WEEKDAYS_MINI = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
   const MAX_PER_DAY = 3;
   const AUTH_FLAG = 'echo:authed';
+  const ROLE_KEY = 'echo:role';
   const PREF_KEY = 'echo:prefs';
 
   const state = {
     auth: false,
+    role: null,
+    version: null,
     view: 'calendar',
     mode: 'month',
     cursor: todayISO(),
@@ -40,6 +43,7 @@
       suggestions: [],
     },
     move: { review: null },
+    plan: { date: '' },
     pendingConfirm: null,
     previewSeq: 0,
     movePreviewSeq: 0,
@@ -220,12 +224,36 @@
   function handleUnauthorized() {
     if (!state.auth) return;
     state.auth = false;
+    state.role = null;
     localStorage.removeItem(AUTH_FLAG);
+    localStorage.removeItem(ROLE_KEY);
     closeAllDialogs();
     $('#app').hidden = true;
     $('#authGate').hidden = false;
     $('#pinError').textContent = 'La sesión ha caducado. Vuelve a introducir tu PIN.';
     setTimeout(() => $('#pinInput').focus(), 80);
+  }
+
+  function isAdmin() {
+    return state.role === 'admin';
+  }
+
+  function applyRole() {
+    const admin = isAdmin();
+    document.body.dataset.role = admin ? 'admin' : 'user';
+    $$('[data-admin-only]').forEach((element) => {
+      element.hidden = !admin;
+    });
+    const pill = $('#adminPill');
+    if (pill) pill.hidden = !admin;
+    const badge = $('#adminBadge');
+    if (badge) badge.hidden = !admin;
+    if (!admin && state.view === 'settings') {
+      switchView('calendar', { push: false });
+      if (location.hash.startsWith('#settings')) {
+        history.replaceState(null, '', '#calendar');
+      }
+    }
   }
 
   /* ------------------------------------------------------------------ */
@@ -311,8 +339,10 @@
     } catch (error) {
       if (localStorage.getItem(AUTH_FLAG) === '1' && error.status === 0) {
         state.auth = true;
+        state.role = localStorage.getItem(ROLE_KEY) === 'admin' ? 'admin' : 'user';
         $('#app').hidden = false;
         $('#authGate').hidden = true;
+        applyRole();
         await refreshData({ silent: true }).catch(() => {
           toast('Sin conexión: se muestran los últimos datos guardados.', 'amber');
         });
@@ -329,8 +359,12 @@
     if (session.authenticated) {
       localStorage.setItem(AUTH_FLAG, '1');
       state.auth = true;
+      state.role = session.role === 'admin' ? 'admin' : 'user';
+      state.version = session.version || null;
+      localStorage.setItem(ROLE_KEY, state.role);
       $('#authGate').hidden = true;
       $('#app').hidden = false;
+      applyRole();
       await refreshData({ silent: true }).catch((error) => {
         toast(error.message || 'No se pudieron cargar los datos.', 'error');
       });
@@ -473,6 +507,7 @@
     renderSidebar();
     renderCalendar();
     renderRail();
+    renderSignalNudge();
   }
 
   /* ------------------------------------------------------------------ */
@@ -481,6 +516,7 @@
 
   function navigate(view) {
     if (!['calendar', 'history', 'settings'].includes(view)) view = 'calendar';
+    if (view === 'settings' && !isAdmin()) view = 'calendar';
     if (state.view === view) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -490,6 +526,7 @@
   }
 
   function switchView(view, { push = true } = {}) {
+    if (view === 'settings' && !isAdmin()) view = 'calendar';
     state.view = view;
     document.body.dataset.view = view;
     savePrefs();
@@ -521,6 +558,85 @@
     $('#topbarDate').textContent = `${formatWeekday(today)} · ${formatShortDate(today)}`;
   }
 
+  const SIGNAL_NUDGES = {
+    none: [
+      'Todavía no hay ninguna señal. Cuando llegue la primera, aquí verás cuánto tiempo pasa desde ella.',
+    ],
+    today: [
+      'La señal de hoy ya está aquí. El ciclo empieza de nuevo.',
+      'Hoy hay un corazón nuevo en el calendario.',
+    ],
+    early: [
+      'Hace {d} días de la última señal.',
+      'La última señal fue hace {d} días.',
+      'Han pasado {d} días desde la última señal.',
+    ],
+    mid: [
+      'Hace {d} días que no llega una señal.',
+      'La última señal fue hace {d} días. Se nota el hueco.',
+      'Ya son {d} días sin un corazón nuevo.',
+    ],
+    late: [
+      'Hace {d} días que no llega una señal. El calendario lo nota.',
+      '{d} días sin señal. Quizá toque recordarlo.',
+      'La última señal queda lejos: {d} días.',
+    ],
+    overdue: [
+      '{d} días sin señal. Un ❤️ reiniciaría el ciclo.',
+      'El ciclo lleva {d} días parado. Toca un corazón nuevo.',
+      '{d} días. El calendario se ha ido llenando de corazones rotos.',
+    ],
+  };
+
+  function signalNudgeCopy(signal) {
+    if (!signal?.last) {
+      return { tone: 'is-calm', text: SIGNAL_NUDGES.none[0] };
+    }
+    const days = Math.max(0, signal.daysSince || 0);
+    let tier = 'early';
+    if (days === 0) tier = 'today';
+    else if (days <= 3) tier = 'early';
+    else if (days <= 13) tier = 'mid';
+    else if (days <= 34) tier = 'late';
+    else tier = 'overdue';
+    const list = SIGNAL_NUDGES[tier];
+    const text = list[days % list.length].replace('{d}', days);
+    const tone = days === 0 ? 'is-calm' : days <= 3 ? 'is-calm' : days <= 13 ? 'is-warm' : 'is-alert';
+    return { tone, text };
+  }
+
+  function renderSignalNudge() {
+    const box = $('#signalNudge');
+    if (!box) return;
+    const signal = state.overview?.signal;
+    if (!signal) {
+      box.hidden = true;
+      return;
+    }
+
+    const copy = signalNudgeCopy(signal);
+    const meta = signal.last
+      ? `Última señal: ${formatMediumDate(signal.last.date)} · ${signal.total} ${plural(signal.total, 'señal', 'señales')}`
+      : 'Sin señales registradas todavía';
+    const action = isAdmin()
+      ? `<button type="button" class="btn btn-ghost btn-sm nudge-action" data-action="mark-signal">
+           <svg class="icon icon-sm"><use href="#i-heart"></use></svg>
+           <span>Dejar señal</span>
+         </button>`
+      : '';
+
+    box.hidden = false;
+    box.className = `signal-nudge ${copy.tone}`;
+    box.innerHTML = `
+      <span class="signal-nudge-emoji">${esc(signal.currentSymbol || '♡')}</span>
+      <span class="signal-nudge-copy">
+        <strong>${esc(copy.text)}</strong>
+        <span>${esc(meta)}</span>
+      </span>
+      ${action}
+    `;
+  }
+
   function renderSidebar() {
     const overview = state.overview;
     const examBox = $('#sidebarExam');
@@ -540,7 +656,7 @@
       examBox.innerHTML = `
         <span class="mini-label">Examen</span>
         <p class="mini-date">Define tu fecha para proyectar la cascada completa.</p>
-        <button type="button" data-action="open-settings">Configurar fecha →</button>
+        <button type="button" data-action="open-exam">Configurar fecha →</button>
       `;
     }
 
@@ -557,7 +673,7 @@
       </span>
     `;
 
-    $('#sidebarFootText').textContent = `Sincronizado · v${state.settings?.version || '1.0'}`;
+    $('#sidebarFootText').textContent = `Sincronizado · v${state.version || state.settings?.version || '1.1'}`;
     const dot = $('#connectionDot');
     dot.classList.toggle('is-offline', !navigator.onLine);
   }
@@ -580,7 +696,7 @@
       `;
     } else {
       container.innerHTML = `
-        <button type="button" class="exam-chip" data-action="open-settings">
+        <button type="button" class="exam-chip" data-action="open-exam">
           <span class="dot"></span>
           Configura la fecha del examen
           <svg class="icon icon-sm"><use href="#i-arrow-right"></use></svg>
@@ -665,7 +781,7 @@
       <section class="exam-card is-empty">
         <span class="mini-label">Examen</span>
         <p>Define la fecha del examen para que Echo proyecte todos los repasos en cascada.</p>
-        <button type="button" class="btn btn-sm" data-action="open-settings">Configurar fecha</button>
+        <button type="button" class="btn btn-sm" data-action="open-exam">Configurar fecha</button>
       </section>
     `;
 
@@ -676,15 +792,18 @@
           <span class="signal-emoji ${signal?.last ? '' : 'is-empty'}">${esc(signal?.currentSymbol || '♡')}</span>
           <div class="signal-copy">
             <strong>${signal?.last ? `Última señal: ${relativeDays(signal.last.date)}` : 'Sin señales'}</strong>
-            <span>${signal?.last ? `${signal.total} ${plural(signal.total, 'señal', 'señales')} · ciclo de ${signal.daysSince} ${plural(signal.daysSince, 'día', 'días')}` : 'Conecta una automatización o marca la señal desde aquí.'}</span>
+            <span>${signal?.last ? `${signal.total} ${plural(signal.total, 'señal', 'señales')} · ${signal.daysSince} ${plural(signal.daysSince, 'día', 'días')} desde la última` : 'Cuando llegue la primera señal, aquí verás el tiempo transcurrido.'}</span>
           </div>
         </div>
-        ${signal?.nextMarks?.length ? `
+        ${signal?.nextMark ? `
           <div class="signal-next">
-            ${signal.nextMarks.slice(0, 3).map((mark) => `<span title="${esc(formatMediumDate(mark.date))}">${esc(mark.symbol)} ${esc(formatShortDate(mark.date))}</span>`).join('')}
+            <span title="${esc(formatMediumDate(signal.nextMark.date))}">
+              ${esc(signal.nextMark.symbol)} ${esc(formatShortDate(signal.nextMark.date))}
+            </span>
+            ${signal.nextMark.visible ? '<span class="signal-next-note">visible en el calendario</span>' : `<span class="signal-next-note">faltan ${signal.nextMark.daysUntil} ${plural(signal.nextMark.daysUntil, 'día', 'días')}</span>`}
           </div>
         ` : ''}
-        <button type="button" class="btn btn-soft" data-action="mark-signal">
+        <button type="button" class="btn btn-soft" data-action="mark-signal" data-admin-only ${isAdmin() ? '' : 'hidden'}>
           <svg class="icon icon-sm"><use href="#i-heart"></use></svg>
           Marcar señal de hoy
         </button>
@@ -902,6 +1021,8 @@
     const done = day.reviews.filter((review) => review.status === 'done');
     const date = day.date;
     const isToday = date === today;
+    const isPast = date < today;
+    const isFuture = date > today;
     const nr = parseISO(date);
 
     const pendingRows = pending.map((review) => {
@@ -915,12 +1036,14 @@
             <span>${overdue ? `Atrasado ${late} ${plural(late, 'día', 'días')}` : `Programado · ${formatShortDate(review.dueDate)}`} · intervalo de ${review.intervalDays} días</span>
           </div>
           <div class="agenda-actions">
-            <button type="button" class="icon-btn" data-move-review="${review.id}" title="Mover este repaso" aria-label="Mover ${esc(review.topic.code)}">
+            <button type="button" class="icon-btn" data-move-review="${review.id}" title="Cambiar la fecha de este repaso" aria-label="Cambiar fecha de ${esc(review.topic.code)}">
               <svg class="icon"><use href="#i-move"></use></svg>
             </button>
-            <button type="button" class="icon-btn is-primary" data-open-review="${review.id}" title="Registrar este repaso" aria-label="Registrar ${esc(review.topic.code)}">
-              <svg class="icon"><use href="#i-check"></use></svg>
-            </button>
+            ${isFuture ? '' : `
+              <button type="button" class="icon-btn is-primary" data-open-review="${review.id}" title="Registrar este repaso" aria-label="Registrar ${esc(review.topic.code)}">
+                <svg class="icon"><use href="#i-check"></use></svg>
+              </button>
+            `}
           </div>
         </div>
       `;
@@ -963,6 +1086,12 @@
                 Registrar hoy
               </button>
             ` : ''}
+            ${!isPast ? `
+              <button type="button" class="btn btn-soft btn-sm" data-action="open-plan" data-date="${date}">
+                <svg class="icon icon-sm"><use href="#i-calendar"></use></svg>
+                Planificar repaso
+              </button>
+            ` : ''}
           </div>
         </div>
 
@@ -973,7 +1102,10 @@
             <div class="day-empty">
               <div class="day-empty-emoji">🍃</div>
               <p>No hay repasos planificados para este día.</p>
-              ${isToday ? '<button type="button" class="btn btn-soft btn-sm" data-action="open-study">Registrar un estudio</button>' : ''}
+              <div class="day-empty-actions">
+                ${isToday ? '<button type="button" class="btn btn-soft btn-sm" data-action="open-study">Registrar un estudio</button>' : ''}
+                ${!isPast ? `<button type="button" class="btn btn-ghost btn-sm" data-action="open-plan" data-date="${date}">Planificar un repaso</button>` : ''}
+              </div>
             </div>
           ` : ''}
         </div>
@@ -1062,6 +1194,11 @@
   function openStudy(options = {}) {
     if (!state.overview) return;
     const extra = options.review || (options.reviewId ? findReviewInState(options.reviewId) : null);
+    if (extra && extra.dueDate > todayISO()) {
+      openMove(extra);
+      toast('Ese repaso todavía no toca. Puedes cambiar su fecha.', 'amber');
+      return;
+    }
     state.study = {
       review: extra || null,
       interval: 3,
@@ -1337,6 +1474,130 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Modal: planificar repaso                                            */
+  /* ------------------------------------------------------------------ */
+
+  function planTopicCodes() {
+    const codes = new Set();
+    const add = (code) => {
+      if (code) codes.add(code);
+    };
+    state.overview?.todayItems?.forEach((review) => add(review.topic.code));
+    state.overview?.overdue?.forEach((review) => add(review.topic.code));
+    state.calendar?.days?.forEach((day) => day.reviews.forEach((review) => add(review.topic.code)));
+    state.history?.topics?.forEach((topic) => add(topic.code));
+    return Array.from(codes).sort((a, b) => a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' }));
+  }
+
+  function openPlan(date) {
+    const target = date && parseISO(date) ? date : todayISO();
+    state.plan.date = target;
+    $('#planCode').value = '';
+    $('#planDate').value = target;
+    $('#planDate').min = todayISO();
+    $('#planDate').max = state.overview?.examDate || '';
+    $('#planError').textContent = '';
+    $('#planHint').textContent = `Reservarás un repaso para el ${formatMediumDate(target)} sin registrar un estudio.`;
+    fillPlanCodes();
+    showDialog($('#planDialog'));
+    if (!state.history) {
+      loadHistory()
+        .then(() => fillPlanCodes())
+        .catch(() => {});
+    }
+    setTimeout(() => $('#planCode').focus(), 140);
+  }
+
+  function fillPlanCodes() {
+    const list = $('#planCodeList');
+    if (!list) return;
+    const current = $('#planCode').value;
+    list.innerHTML = planTopicCodes()
+      .map((code) => `<option value="${esc(code)}"></option>`)
+      .join('');
+    if (current) $('#planCode').value = current;
+  }
+
+  async function submitPlan(event) {
+    event.preventDefault();
+    const button = $('#planSubmit');
+    const errorBox = $('#planError');
+    const code = $('#planCode').value.trim();
+    const date = $('#planDate').value;
+    errorBox.textContent = '';
+
+    if (!code) {
+      errorBox.textContent = 'Indica el tema que quieres planificar.';
+      return;
+    }
+    if (!date) {
+      errorBox.textContent = 'Elige la fecha del repaso.';
+      return;
+    }
+    if (date < todayISO()) {
+      errorBox.textContent = 'No puedes planificar un repaso en el pasado.';
+      return;
+    }
+
+    setBusy(button, true);
+    try {
+      const result = await api('/api/plan', { method: 'POST', body: { code, due_date: date } });
+      closeDialog($('#planDialog'));
+      toast(`Repaso de ${result.topic.code} planificado para el ${formatMediumDate(result.dueDate)}.`);
+      await refreshAfterMutation().catch((error) => toast(error.message, 'error'));
+      goToDay(result.dueDate);
+    } catch (error) {
+      if (error.status === 409 && error.data?.suggestedDate) {
+        const suggestion = error.data.suggestedDate;
+        $('#planDate').value = suggestion;
+        $('#planHint').textContent = `El día estaba completo. Se propone el ${formatMediumDate(suggestion)}: vuelve a guardar para aceptarlo.`;
+        errorBox.textContent = 'Ese día ya tiene 3 temas. Ajusta la fecha propuesta o elige otra.';
+      } else if (error.status === 409 && error.data?.error === 'duplicate') {
+        errorBox.textContent = error.message;
+      } else {
+        errorBox.textContent = error.message;
+      }
+    } finally {
+      setBusy(button, false);
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Modal: fecha del examen                                             */
+  /* ------------------------------------------------------------------ */
+
+  function openExam() {
+    $('#examDateModal').value = state.overview?.examDate || state.settings?.examDate || '';
+    $('#examError').textContent = '';
+    showDialog($('#examDialog'));
+  }
+
+  async function submitExam(event) {
+    event.preventDefault();
+    const button = $('#examSubmit');
+    const value = $('#examDateModal').value;
+    const errorBox = $('#examError');
+    errorBox.textContent = '';
+    setBusy(button, true);
+    try {
+      const result = await api('/api/settings', { method: 'PUT', body: { exam_date: value } });
+      state.settingsDirty = true;
+      if (state.settings) state.settings.examDate = result.examDate;
+      closeDialog($('#examDialog'));
+      toast(result.examDate ? `Fecha de examen: ${formatMediumDate(result.examDate)}.` : 'Fecha de examen eliminada.');
+      await refreshData({ silent: true });
+      if (state.view === 'settings') {
+        await loadSettings(true);
+        renderSettings();
+      }
+    } catch (error) {
+      errorBox.textContent = error.message;
+    } finally {
+      setBusy(button, false);
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Modal: colisiones                                                   */
   /* ------------------------------------------------------------------ */
 
@@ -1492,6 +1753,10 @@
 
   function renderSettings() {
     const container = $('#settingsContent');
+    if (!isAdmin()) {
+      container.innerHTML = '';
+      return;
+    }
     if (!state.settings) {
       container.innerHTML = '<div class="loading-block"><span class="spinner"></span></div>';
       return;
@@ -1501,6 +1766,7 @@
     const signal = settings.signal || overview.signal;
     const origin = location.origin;
     const apiConfigured = settings.apiTokenConfigured;
+    const intervals = settings.intervals || [3, 7, 14, 21, 30];
     const installAvailable = Boolean(state.installPrompt) && !window.matchMedia('(display-mode: standalone)').matches;
 
     const examCard = `
@@ -1542,8 +1808,8 @@
           </div>
         </div>
         <div class="ladder" aria-label="Escalón de intervalos">
-          ${settings.intervals.map((interval, index) => `
-            <span>${interval}d</span>${index < settings.intervals.length - 1 ? '<i>→</i>' : '<i>→</i><span>30d…</span>'}
+          ${intervals.map((interval, index) => `
+            <span>${interval}d</span>${index < intervals.length - 1 ? '<i>→</i>' : '<i>→</i><span>30d…</span>'}
           `).join('')}
         </div>
         <div class="setting-row">
@@ -1571,7 +1837,9 @@
             <p>Todo queda en tu instalación. El PIN se define en Home Assistant.</p>
           </div>
         </div>
-        <div class="setting-row"><span>PIN de acceso</span><strong>${settings.appPinConfigured ? 'Configurado' : 'No configurado'}</strong></div>
+        <div class="setting-row"><span>Perfil activo</span><strong>Administración</strong></div>
+        <div class="setting-row"><span>PIN de usuario</span><strong>${settings.appPinConfigured ? 'Configurado' : 'No configurado'}</strong></div>
+        <div class="setting-row"><span>PIN de administración</span><strong>${settings.adminPinConfigured ? 'Configurado' : 'Usa el PIN de usuario'}</strong></div>
         <div class="setting-row"><span>Sesión</span><strong>30 días por dispositivo</strong></div>
         <div class="setting-row"><span>Cookie</span><strong>HttpOnly · SameSite Lax</strong></div>
         <div class="settings-actions">
@@ -1601,7 +1869,7 @@
         <div class="settings-actions">
           <button type="button" class="btn btn-soft" data-action="mark-signal"><svg class="icon icon-sm"><use href="#i-heart"></use></svg> Marcar señal ahora</button>
         </div>
-        <p class="hint">❤️ el día de la señal · 😢 +7 días · 😭 +14 días · 💔 +21 días y un corazón roto más cada 5 días. El ciclo se reinicia con una nueva señal.</p>
+        <p class="hint">❤️ el día de la señal · 😢 +7 días · 😭 +14 días · 💔 +21 días y un corazón roto más cada 5 días. Cada marca aparece en el calendario dos días antes de su fecha y se queda una vez alcanzada; el ciclo se reinicia con una nueva señal.</p>
       </section>
     `;
 
@@ -1873,6 +2141,7 @@ automation:
   /* ------------------------------------------------------------------ */
 
   async function markSignal(button) {
+    if (!isAdmin()) return;
     if (button) button.disabled = true;
     try {
       await api('/api/signals', { method: 'POST', body: {} });
@@ -1897,11 +2166,13 @@ automation:
       // noop
     }
     state.auth = false;
+    state.role = null;
     state.overview = null;
     state.calendar = null;
     state.history = null;
     state.settings = null;
     localStorage.removeItem(AUTH_FLAG);
+    localStorage.removeItem(ROLE_KEY);
     closeAllDialogs();
     $('#app').hidden = true;
     $('#authGate').hidden = false;
@@ -1943,12 +2214,16 @@ automation:
       button.disabled = true;
       button.innerHTML = '<span class="spinner" style="width:15px;height:15px;border-width:1.5px"></span><span>Comprobando…</span>';
       try {
-        await api('/api/auth', { method: 'POST', body: { pin } });
+        const result = await api('/api/auth', { method: 'POST', body: { pin } });
         localStorage.setItem(AUTH_FLAG, '1');
         state.auth = true;
+        state.role = result.role === 'admin' ? 'admin' : 'user';
+        state.version = result.version || null;
+        localStorage.setItem(ROLE_KEY, state.role);
         input.value = '';
         $('#authGate').hidden = true;
         $('#app').hidden = false;
+        applyRole();
         await refreshData({ silent: true });
         switchView(hashView(), { push: false });
       } catch (error) {
@@ -2100,6 +2375,18 @@ automation:
     $('#moveForm').addEventListener('submit', submitMove);
     $('#moveDate').addEventListener('change', updateMovePreview);
 
+    // Planificar repaso
+    $('#planForm').addEventListener('submit', submitPlan);
+    $('#planDate').addEventListener('change', () => {
+      const value = $('#planDate').value;
+      $('#planHint').textContent = value
+        ? `Reservarás un repaso para el ${formatMediumDate(value)} sin registrar un estudio.`
+        : 'Elige el día en el que quieres repasar este tema.';
+    });
+
+    // Fecha del examen
+    $('#examFormModal').addEventListener('submit', submitExam);
+
     // Colisión
     $('#collisionCancel').addEventListener('click', () => {
       closeDialog($('#collisionDialog'));
@@ -2180,6 +2467,12 @@ automation:
     switch (action) {
       case 'open-study':
         openStudy();
+        break;
+      case 'open-plan':
+        openPlan(element.dataset.date || state.cursor);
+        break;
+      case 'open-exam':
+        openExam();
         break;
       case 'go-today':
         goToday();

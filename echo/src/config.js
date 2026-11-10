@@ -27,10 +27,25 @@ function envOr(value, fallback) {
   return value === undefined || value === null || value === '' ? fallback : String(value);
 }
 
+function envBool(value, fallback = false) {
+  const raw = envOr(value, fallback ? 'true' : 'false').toLowerCase();
+  return ['1', 'true', 'yes', 'on'].includes(raw);
+}
+
+/** Las rutas de certificados relativas viven en /ssl (volumen del add-on). */
+function sslPath(value, fallback) {
+  const raw = envOr(value, fallback);
+  if (raw.startsWith('/') || /^[A-Za-z]:[\\/]/.test(raw)) return raw;
+  return `/ssl/${raw}`;
+}
+
 const dbPath = envOr(
   process.env.DB_PATH,
   isAddon ? '/data/echo.db' : path.join(rootDir, 'data', 'echo.db')
 );
+
+const appPin = envOr(process.env.APP_PIN, envOr(options.app_pin, '1234'));
+const adminPin = envOr(process.env.ADMIN_PIN, envOr(options.admin_pin, ''));
 
 module.exports = {
   rootDir,
@@ -38,13 +53,17 @@ module.exports = {
   dbPath,
   port: Number(envOr(process.env.PORT, 3000)),
   host: envOr(process.env.HOST, '0.0.0.0'),
-  appPin: envOr(process.env.APP_PIN, envOr(options.app_pin, '1234')),
+  appPin,
+  adminPin,
   apiToken: envOr(process.env.API_TOKEN, envOr(options.api_token, '')),
   sessionSecret: envOr(process.env.SESSION_SECRET, envOr(options.session_secret, '')),
   examDate: envOr(process.env.EXAM_DATE, envOr(options.exam_date, '')),
+  ssl: envBool(process.env.SSL, envBool(options.ssl, false)),
+  certFile: sslPath(process.env.CERTFILE, envOr(options.certfile, 'fullchain.pem')),
+  keyFile: sslPath(process.env.KEYFILE, envOr(options.keyfile, 'privkey.pem')),
   sessionDays: 30,
   maxPerDay: 3,
   intervals: [3, 7, 14, 21, 30],
   isAddon,
-  version: '1.0.1',
+  version: '1.1.0',
 };

@@ -4194,3 +4194,114 @@ body[data-view="settings"] .fab {
     scroll-behavior: auto !important;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Perfiles y aviso de señal
+   -------------------------------------------------------------------------- */
+
+.admin-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--green-100);
+  background: var(--green-50);
+  color: var(--green-800);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.signal-nudge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 9px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--faint);
+  transition: background 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+
+.signal-nudge.is-calm {
+  opacity: 0.86;
+}
+
+.signal-nudge.is-warm {
+  border-color: var(--amber-line);
+  background: var(--amber-bg);
+}
+
+.signal-nudge.is-alert {
+  border-color: var(--red-line);
+  background: var(--red-bg);
+}
+
+.signal-nudge-emoji {
+  font-size: 17px;
+  line-height: 1;
+  letter-spacing: -1px;
+  flex: 0 0 auto;
+}
+
+.signal-nudge-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.signal-nudge-copy strong {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.signal-nudge.is-alert .signal-nudge-copy strong {
+  color: var(--red);
+}
+
+.signal-nudge-copy > span {
+  display: block;
+  margin-top: 1px;
+  font-size: 9.5px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.signal-nudge .nudge-action {
+  flex: 0 0 auto;
+  height: 30px;
+  font-size: 11px;
+}
+
+.signal-next .signal-next-note {
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  color: var(--faint);
+}
+
+.day-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .signal-nudge {
+    margin-bottom: 10px;
+    padding: 8px 11px;
+    gap: 9px;
+  }
+
+  .signal-nudge-copy strong {
+    font-size: 11px;
+  }
+
+  .signal-nudge .nudge-action {
+    display: none;
+  }
+}

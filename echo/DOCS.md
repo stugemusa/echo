@@ -4,26 +4,49 @@
 
 | Opción | Por defecto | Descripción |
 | --- | --- | --- |
-| `app_pin` | `1234` | PIN de acceso. **Cámbialo.** |
+| `app_pin` | `1234` | PIN del **usuario normal** (calendario, estudio, historial y fecha del examen). **Cámbialo.** |
+| `admin_pin` | vacío | PIN de **administración** (ajustes, señales y API). Si lo dejas vacío, `app_pin` actúa como administrador. |
 | `api_token` | vacío | Token de `POST /api/signal`. Si está vacío, la API externa queda desactivada. |
 | `session_secret` | vacío | Secreto para firmar la cookie. Si se deja vacío se genera y guarda en SQLite. |
 | `exam_date` | vacío | Fecha inicial del examen (`YYYY-MM-DD`). También se puede cambiar desde Ajustes. |
+| `ssl` | `false` | Sirve Echo por HTTPS en el mismo puerto. |
+| `certfile` | `fullchain.pem` | Certificado TLS. Ruta relativa a `/ssl` o absoluta. |
+| `keyfile` | `privkey.pem` | Clave privada TLS. Ruta relativa a `/ssl` o absoluta. |
+
+## Perfiles
+
+El PIN introducido decide el perfil. No hay pistas en la pantalla de acceso:
+
+- **Usuario normal** (`app_pin`): calendario, estudio, historial, planificación manual y fecha del examen. No ve Ajustes ni puede marcar señales.
+- **Administración** (`admin_pin`): todo lo anterior más Ajustes, señales, máximo diario, API y exportaciones.
+
+Si solo defines `app_pin`, ese PIN se comporta como administrador (compatibilidad).
 
 ## Acceso
 
-El add-on publica el puerto `3000` en el host. Abre:
+El add-on publica el puerto interno `3000` en el host `9001`. Abre:
 
 ```text
-http://homeassistant.local:3000
+http://homeassistant.local:9001
 ```
 
 o
 
 ```text
-http://IP_DE_TU_HOME_ASSISTANT:3000
+http://IP_DE_TU_HOME_ASSISTANT:9001
 ```
 
-Si el puerto 3000 está ocupado, cámbialo en **Configuración → Red** del add-on.
+Si el puerto 9001 está ocupado, cámbialo en **Configuración → Red** del add-on.
+
+## HTTPS opcional
+
+Activa `ssl` para que el add-on sirva HTTPS reutilizando el certificado de DuckDNS/Let's Encrypt de Home Assistant (vive en `/ssl`):
+
+1. Activa `ssl: true` y deja `certfile: fullchain.pem` y `keyfile: privkey.pem`.
+2. Reinicia el add-on. El puerto 9001 pasará a hablar HTTPS.
+3. Si quieres acceso remoto, reenvía el puerto `9001` en el router hacia `IP_DE_TU_HA:9001` y entra por `https://TU-DOMINIO.duckdns.org:9001`.
+
+> El certificado está emitido para tu dominio, no para la IP local. Por `https://` con IP verás un aviso de certificado: en la red local sigue usando `http://IP_DE_TU_HA:9001`.
 
 ## Datos y copias
 
@@ -35,13 +58,20 @@ incluido en la copia. También puedes exportar JSON/CSV desde **Ajustes**.
 
 Echo funciona completamente por HTTP en la red local. El service worker y la
 instalación como PWA requieren un contexto seguro (HTTPS o `localhost`), así que
-por HTTP no habrá modo offline. No expongas el puerto 3000 directamente a
-Internet.
+por HTTP no habrá modo offline. No expongas el puerto directamente a Internet sin
+HTTPS.
+
+## Señales
+
+Las señales no se planifican con antelación. Desde la última señal, el calendario
+solo muestra **la siguiente marca** y solo **dos días antes** de su fecha; las
+marcas ya alcanzadas se mantienen. Cadencia: ❤️ el día de la señal, 😢 +7, 😭 +14,
+💔 +21 y un corazón roto más cada 5 días. Una nueva señal reinicia el ciclo.
 
 ## API externa
 
 ```bash
-curl -X POST "http://homeassistant.local:3000/api/signal" \
+curl -X POST "http://homeassistant.local:9001/api/signal" \
   -H "x-api-token: TU_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"source":"home-assistant","note":"Sigo aquí"}'

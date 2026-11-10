@@ -119,7 +119,7 @@
         <svg class="icon"><use href="#i-history"></use></svg>
         <span>Historial</span>
       </button>
-      <button type="button" class="nav-item" data-nav="settings">
+      <button type="button" class="nav-item" data-nav="settings" data-admin-only hidden>
         <svg class="icon"><use href="#i-settings"></use></svg>
         <span>Ajustes</span>
       </button>
@@ -142,6 +142,7 @@
       </div>
       <div class="topbar-context">
         <span class="topbar-date" id="topbarDate"></span>
+        <span class="admin-pill" id="adminPill" hidden>Admin</span>
         <span class="offline-pill" id="offlinePill" hidden>Sin conexión</span>
       </div>
       <div class="topbar-actions">
@@ -169,6 +170,8 @@
         </div>
 
         <h2 class="sr-only">Planificación de repasos</h2>
+
+        <div class="signal-nudge" id="signalNudge" hidden></div>
 
         <div class="calendar-layout">
           <div class="calendar-main">
@@ -273,7 +276,7 @@
       <svg class="icon"><use href="#i-history"></use></svg>
       <span>Historial</span>
     </button>
-    <button type="button" class="tab-item" data-nav="settings">
+    <button type="button" class="tab-item" data-nav="settings" data-admin-only hidden>
       <svg class="icon"><use href="#i-settings"></use></svg>
       <span>Ajustes</span>
     </button>
@@ -386,6 +389,69 @@
     <div class="modal-foot">
       <button type="button" class="btn btn-ghost" data-close="moveDialog">Cancelar</button>
       <button type="submit" class="btn btn-primary" id="moveSubmit">Guardar nueva fecha</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ====================== MODAL: PLANIFICAR ==================== -->
+<dialog class="modal modal-sm" id="planDialog" aria-labelledby="planTitle">
+  <form class="modal-card" id="planForm" method="dialog">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">Plan manual</p>
+        <h2 id="planTitle">Planificar repaso</h2>
+      </div>
+      <button type="button" class="icon-btn" data-close="planDialog" aria-label="Cerrar">
+        <svg class="icon"><use href="#i-x"></use></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="planCode">Tema</label>
+        <input class="input" id="planCode" type="text" list="planCodeList" placeholder="Ej. Tema 12 · Acto administrativo" autocomplete="off" maxlength="80" required>
+        <datalist id="planCodeList"></datalist>
+        <p class="hint">Escribe el tema o elige uno de tu historial. No registra un estudio: solo reserva el repaso.</p>
+      </div>
+      <div class="field">
+        <label for="planDate">Fecha del repaso</label>
+        <input class="input input-date" id="planDate" type="date" required>
+        <p class="hint" id="planHint">Elige el día en el que quieres repasar este tema.</p>
+      </div>
+      <p class="form-error" id="planError" role="alert"></p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-ghost" data-close="planDialog">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="planSubmit">
+        <svg class="icon"><use href="#i-check"></use></svg>
+        <span>Planificar repaso</span>
+      </button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ======================= MODAL: EXAMEN ======================= -->
+<dialog class="modal modal-sm" id="examDialog" aria-labelledby="examTitle">
+  <form class="modal-card" id="examFormModal" method="dialog">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">Cuenta atrás</p>
+        <h2 id="examTitle">Fecha del examen</h2>
+      </div>
+      <button type="button" class="icon-btn" data-close="examDialog" aria-label="Cerrar">
+        <svg class="icon"><use href="#i-x"></use></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="examDateModal">Día del examen</label>
+        <input class="input input-date" id="examDateModal" type="date">
+        <p class="hint">Echo planificará los repasos hasta ese día. Déjalo vacío para quitar la fecha.</p>
+      </div>
+      <p class="form-error" id="examError" role="alert"></p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-ghost" data-close="examDialog">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="examSubmit">Guardar fecha</button>
     </div>
   </form>
 </dialog>

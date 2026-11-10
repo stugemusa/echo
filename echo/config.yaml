@@ -1,5 +1,5 @@
 name: Echo
-version: "1.0.1"
+version: "1.1.0"
 slug: echo
 description: Sistema de arrastre para oposiciones con repaso espaciado, calendario y señales.
 url: https://github.com/stugemusa/echo
@@ -10,15 +10,25 @@ init: false
 startup: application
 boot: auto
 ports:
-  3000/tcp: 3000
+  3000/tcp: 9001
 ports_description:
   3000/tcp: Interfaz web de Echo
-webui: http://[HOST]:[PORT:3000]
-watchdog: http://[HOST]:[PORT:3000]/api/health
+map:
+  - type: ssl
+webui: "[PROTO:ssl]://[HOST]:[PORT:3000]"
+watchdog: "[PROTO:ssl]://[HOST]:[PORT:3000]/api/health"
 options:
   app_pin: "1234"
+  admin_pin: ""
+  ssl: false
+  certfile: fullchain.pem
+  keyfile: privkey.pem
 schema:
   app_pin: password
+  admin_pin: password?
   api_token: password?
   session_secret: password?
   exam_date: str?
+  ssl: bool?
+  certfile: str?
+  keyfile: str?

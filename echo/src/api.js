@@ -18,7 +18,14 @@ const {
   startOfWeek,
 } = require('./dates');
 const auth = require('./auth');
-const { planCascade, planReschedule, applyPlan, occupancyCount } = require('./scheduler');
+const {
+  planCascade,
+  planReschedule,
+  applyPlan,
+  getOccupancy,
+  findSlot,
+  occupancyCount,
+} = require('./scheduler');
 const { getSignalMarks, signalState, addSignal } = require('./signals');
 
 const router = express.Router();
@@ -98,8 +105,10 @@ router.get('/health', (req, res) => {
 });
 
 router.get('/session', (req, res) => {
+  const session = auth.getSessionFromRequest(req);
   res.json({
-    authenticated: auth.getSessionFromRequest(req),
+    authenticated: Boolean(session),
+    role: session ? session.role : null,
     version: config.version,
   });
 });
@@ -118,14 +127,15 @@ router.post('/auth', (req, res) => {
     return res.status(400).json({ error: 'missing_pin', message: 'Introduce el PIN de acceso.' });
   }
 
-  if (!auth.pinMatches(pin)) {
+  const role = auth.resolveRole(pin);
+  if (!role) {
     auth.registerFailure(ip);
     return res.status(401).json({ error: 'invalid_pin', message: 'El PIN no es correcto.' });
   }
 
   auth.clearFailures(ip);
-  res.setHeader('Set-Cookie', auth.sessionCookie(req));
-  return res.json({ ok: true, version: config.version });
+  res.setHeader('Set-Cookie', auth.sessionCookie(req, role));
+  return res.json({ ok: true, role, version: config.version });
 });
 
 router.post('/logout', (req, res) => {
@@ -248,7 +258,7 @@ router.get('/calendar', (req, res) => {
     )
     .all(from, to);
 
-  const marks = getSignalMarks(db, from, to);
+  const marks = getSignalMarks(db, from, to, today);
   const byDate = new Map();
   for (const date of eachDay(from, to)) {
     byDate.set(date, { date, reviews: [], marks: marks.get(date) || [] });
@@ -298,6 +308,12 @@ router.post('/studies', (req, res) => {
     review = pendingReviewById.get(Number(body.review_id));
     if (!review) {
       return res.status(404).json({ error: 'not_found', message: 'El repaso pendiente ya no existe.' });
+    }
+    if (review.due_date > todayISO()) {
+      return res.status(400).json({
+        error: 'future_review',
+        message: 'Ese repaso todavía no toca. Puedes cambiar su fecha, pero no registrar el estudio antes de tiempo.',
+      });
     }
     topic = topicById.get(review.topic_id);
   } else {
@@ -480,6 +496,117 @@ router.post('/studies', (req, res) => {
   });
 });
 
+router.post('/plan', (req, res) => {
+  const body = req.body || {};
+  const target = body.due_date;
+  const today = todayISO();
+
+  if (!isValidISO(target)) {
+    return res.status(400).json({ error: 'invalid_date', message: 'Fecha de repaso no válida.' });
+  }
+  if (target < today) {
+    return res.status(400).json({ error: 'past_date', message: 'No puedes planificar un repaso en el pasado.' });
+  }
+
+  const examDate = getExamDate();
+  if (examDate && target > examDate) {
+    return res.status(400).json({ error: 'after_exam', message: 'La fecha no puede superar la fecha del examen.' });
+  }
+
+  const code = cleanCode(body.code);
+  if (!code) {
+    return res.status(400).json({ error: 'missing_code', message: 'Indica el tema que quieres planificar.' });
+  }
+
+  const existingTopic = topicByCode.get(code);
+  if (existingTopic) {
+    const duplicate = db
+      .prepare("SELECT id FROM reviews WHERE topic_id = ? AND status = 'pending' AND due_date = ?")
+      .get(existingTopic.id, target);
+    if (duplicate) {
+      return res.status(409).json({
+        error: 'duplicate',
+        message: 'Ese tema ya tiene un repaso planificado para ese día.',
+      });
+    }
+  }
+
+  const occ = getOccupancy(db);
+  const topicId = existingTopic ? existingTopic.id : -1;
+  const count = occupancyCount(occ, target);
+  const alreadyThere = occ.get(target)?.has(topicId);
+  if (!alreadyThere && count >= getMaxPerDay()) {
+    const suggestion = findSlot({
+      start: target,
+      intervalDays: 3,
+      minDate: today,
+      maxDateLimit: examDate || addDays(target, 120),
+      occ,
+      topicId,
+      maxPerDay: getMaxPerDay(),
+    });
+    return res.status(409).json({
+      error: 'collision',
+      requiresConfirmation: true,
+      message: 'Ese día ya está completo.',
+      targetDate: target,
+      suggestedDate: suggestion ? suggestion.date : null,
+    });
+  }
+
+  const timestamp = new Date().toISOString();
+
+  let result;
+  try {
+    result = db.transaction(() => {
+      let topicRow = existingTopic;
+      if (!topicRow) {
+        const info = db
+          .prepare('INSERT INTO topics (code, created_at, updated_at) VALUES (?, ?, ?)')
+          .run(code, timestamp, timestamp);
+        topicRow = topicById.get(info.lastInsertRowid);
+      }
+
+      const previous = db
+        .prepare(
+          `SELECT due_date, completed_on FROM reviews
+           WHERE topic_id = ? AND (status = 'done' OR due_date < ?)
+           ORDER BY due_date DESC, id DESC LIMIT 1`
+        )
+        .get(topicRow.id, target);
+      const basePrev = previous
+        ? previous.completed_on && previous.completed_on > previous.due_date
+          ? previous.completed_on
+          : previous.due_date
+        : (topicRow.created_at || target).slice(0, 10);
+      const interval = Math.max(1, diffDays(basePrev, target) || 1);
+
+      const info = db
+        .prepare(
+          `INSERT INTO reviews
+             (topic_id, due_date, interval_days, status, completed_on, comments, origin, created_at, updated_at)
+           VALUES (?, ?, ?, 'pending', NULL, NULL, 'manual', ?, ?)`
+        )
+        .run(topicRow.id, target, interval, timestamp, timestamp);
+
+      db.prepare('UPDATE topics SET updated_at = ? WHERE id = ?').run(timestamp, topicRow.id);
+
+      return { reviewId: Number(info.lastInsertRowid), topic: topicRow, interval };
+    })();
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: 'conflict', message: err.message });
+    throw err;
+  }
+
+  res.status(201).json({
+    ok: true,
+    reviewId: result.reviewId,
+    dueDate: target,
+    intervalDays: result.interval,
+    topic: { id: result.topic.id, code: result.topic.code },
+  });
+});
+
 router.patch('/reviews/:id', (req, res) => {
   const review = pendingReviewById.get(Number(req.params.id));
   if (!review) {
@@ -628,23 +755,42 @@ router.get('/history', (req, res) => {
 });
 
 router.get('/settings', (req, res) => {
-  res.json({
+  const role = req.session.role;
+  const payload = {
+    role,
     examDate: getExamDate(),
     maxPerDay: getMaxPerDay(),
-    intervals: config.intervals,
-    apiEnabled: Boolean(config.apiToken),
-    apiTokenConfigured: Boolean(config.apiToken),
-    appPinConfigured: Boolean(config.appPin),
     version: config.version,
     today: todayISO(),
-    signal: signalState(db),
     storage: config.isAddon ? 'Volumen persistente /data' : 'Carpeta local ./data',
     isAddon: config.isAddon,
-  });
+  };
+
+  if (role === 'admin') {
+    Object.assign(payload, {
+      intervals: config.intervals,
+      apiEnabled: Boolean(config.apiToken),
+      apiTokenConfigured: Boolean(config.apiToken),
+      appPinConfigured: Boolean(config.appPin),
+      adminPinConfigured: Boolean(config.adminPin),
+      signal: signalState(db),
+    });
+  }
+
+  res.json(payload);
 });
 
 router.put('/settings', (req, res) => {
   const body = req.body || {};
+  const role = req.session.role;
+
+  if (body.max_per_day !== undefined && role !== 'admin') {
+    return res.status(403).json({
+      error: 'forbidden',
+      message: 'Solo el perfil de administración puede cambiar el máximo por día.',
+    });
+  }
+
   if (body.exam_date !== undefined) {
     const value = String(body.exam_date || '').trim();
     if (value && !isValidISO(value)) {
@@ -666,7 +812,7 @@ router.put('/settings', (req, res) => {
   });
 });
 
-router.post('/signals', (req, res) => {
+router.post('/signals', auth.requireAdmin, (req, res) => {
   const result = addSignal(db, {
     date: todayISO(),
     source: 'manual',

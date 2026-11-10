@@ -25,11 +25,15 @@ Está pensada para ejecutarse en **Home Assistant OS** sobre una Raspberry Pi, c
   - ❤️ el día que se recibe una señal;
   - 😢 a los 7 días sin señal;
   - 😭 a los 14 días;
-  - 💔 a los 21 días y un corazón roto adicional cada 5 días.
+  - 💔 a los 21 días y un corazón roto adicional cada 5 días;
+  - solo se muestra la **siguiente** marca, y únicamente **dos días antes** de su fecha.
+- **Dos perfiles con PIN**: usuario normal (calendario, estudio y fecha del examen) y administración (ajustes, señales y API).
+- **Planificación manual**: reserva un repaso en cualquier día futuro sin registrar un estudio.
 - **API externa** `POST /api/signal` protegida con token, ideal para automatizaciones de Home Assistant.
 - **Exportación** a JSON y CSV, y vista de impresión limpia para PDF.
 - **Acceso con PIN** y cookie de sesión firmada (30 días).
 - **PWA instalable** con service worker y lectura offline de los últimos datos.
+- **HTTPS opcional**: sirve Echo por TLS reutilizando el certificado de DuckDNS/Let's Encrypt de Home Assistant.
 
 ---
 
@@ -54,7 +58,7 @@ No hay build de frontend: el servidor sirve los archivos estáticos de `public/`
 git clone https://github.com/stugemusa/echo.git
 cd echo
 cp .env.example .env
-# Edita .env: cambia APP_PIN, define API_TOKEN y SESSION_SECRET
+# Edita .env: cambia APP_PIN, define ADMIN_PIN, API_TOKEN y SESSION_SECRET
 docker compose up -d --build
 ```
 
@@ -70,11 +74,15 @@ tar -czf echo-backup-$(date +%F).tar.gz data/
 
 | Variable | Por defecto | Descripción |
 | --- | --- | --- |
-| `APP_PIN` | `1234` | PIN de acceso a la app. **Cámbialo.** |
+| `APP_PIN` | `1234` | PIN del **usuario normal**: calendario, estudio, historial y fecha del examen. **Cámbialo.** |
+| `ADMIN_PIN` | vacío | PIN de **administración**: añade ajustes, señales y API. Si lo dejas vacío, `APP_PIN` actúa como administrador. |
 | `API_TOKEN` | vacío | Token de `POST /api/signal`. Si está vacío, la API externa queda desactivada. |
 | `SESSION_SECRET` | autogenerado | Secreto para firmar la cookie. Si se omite, se genera y guarda en SQLite. |
 | `DB_PATH` | `/data/echo.db` en Docker | Ruta del archivo SQLite. |
-| `PORT` | `3000` | Puerto HTTP del servidor. |
+| `PORT` | `3000` | Puerto HTTP (o HTTPS) del servidor. |
+| `SSL` | `false` | Sirve HTTPS en lugar de HTTP. |
+| `CERTFILE` | `/ssl/fullchain.pem` | Certificado TLS (PEM). Acepta ruta absoluta o relativa a `/ssl`. |
+| `KEYFILE` | `/ssl/privkey.pem` | Clave privada TLS (PEM). Acepta ruta absoluta o relativa a `/ssl`. |
 | `TZ` | `Europe/Madrid` | Zona horaria del contenedor. |
 | `EXAM_DATE` | vacío | Fecha inicial del examen (`YYYY-MM-DD`). Después se puede cambiar desde Ajustes. |
 
@@ -103,25 +111,57 @@ El repositorio incluye `repository.yaml`, y el add-on está en la carpeta `echo/
    ```
 4. Busca **Echo** en la tienda, instálalo y ábrelo. La primera compilación puede tardar varios minutos en una Raspberry Pi.
 5. En la pestaña **Configuración** del add-on define:
-   - `app_pin`: tu PIN de acceso.
+   - `app_pin`: PIN del usuario normal.
+   - `admin_pin`: PIN del administrador (opcional; si lo dejas vacío, `app_pin` manda).
    - `api_token`: token para la API externa (opcional).
    - `session_secret`: opcional; si lo dejas vacío se genera uno.
    - `exam_date`: opcional (`YYYY-MM-DD`).
-6. Inicia el add-on y pulsa **Abrir interfaz web**. La app queda accesible en `http://homeassistant.local:3000` o `http://IP_DE_TU_HA:3000`.
-7. La app funciona por **HTTP** en tu red local: `http://homeassistant.local:3000` o `http://IP_DE_TU_HA:3000`. Puedes usarla en el navegador del móvil y añadir un acceso directo a la pantalla de inicio. La instalación PWA completa y el modo offline necesitan HTTPS, pero no son necesarios para usar Echo.
+   - `ssl`, `certfile`, `keyfile`: opcionales, para servir Echo por HTTPS (ver más abajo).
+6. Inicia el add-on y pulsa **Abrir interfaz web**.
+7. Entra con el PIN que corresponda. El usuario normal ve el calendario y el historial; el administrador ve además **Ajustes** y puede marcar señales.
 
 > **Almacenamiento:** en modo add-on, la base de datos se guarda en `/data/echo.db`, dentro del volumen persistente del add-on. Los backups de Home Assistant la incluyen si activas la copia de seguridad del add-on.
 
+### Perfiles: usuario y administración
+
+Echo decide el perfil según el PIN que introduzcas. No hay ningún selector ni pista en la pantalla de acceso:
+
+| | Usuario normal | Administración |
+| --- | --- | --- |
+| Calendario, estudio, historial | ✅ | ✅ |
+| Establecer la fecha del examen | ✅ | ✅ |
+| Planificar repasos a mano | ✅ | ✅ |
+| Sección **Ajustes** | ❌ (oculta) | ✅ |
+| Marcar la señal del día | ❌ | ✅ |
+| Cambiar máximo diario y ver la API | ❌ | ✅ |
+
+El usuario normal **no sabe** que existe un modo de administración: la pestaña de Ajustes y los botones de señal simplemente no están. Si defines un solo PIN (`app_pin`), ese PIN actúa como administrador para no romper instalaciones existentes.
+
 ### Puerto
 
-El add-on expone el puerto `3000`. Home Assistant permite cambiar el puerto del host desde la configuración del add-on (`3000/tcp`).
+El add-on expone el contenedor `3000` en el host `9001`. Home Assistant permite cambiarlo desde la configuración de red del add-on (`3000/tcp`).
+
+```text
+http://homeassistant.local:9001
+http://IP_DE_TU_HA:9001
+```
+
+### Servir Echo por HTTPS (opcional)
+
+El add-on puede servir HTTPS directamente, reutilizando el certificado de DuckDNS/Let's Encrypt que ya guarda Home Assistant en `/ssl`:
+
+1. En la pestaña **Configuración** del add-on activa `ssl` y deja `certfile: fullchain.pem` y `keyfile: privkey.pem` (las rutas relativas se resuelven dentro de `/ssl`).
+2. Guarda y reinicia el add-on. El puerto `9001` pasará a hablar HTTPS.
+3. En el router, reenvía el puerto externo `9001` hacia `IP_DE_TU_HA:9001` si quieres acceder desde fuera. Con el certificado de DuckDNS, la URL correcta es `https://TU-DOMINIO.duckdns.org:9001`.
+
+> El certificado está emitido para tu dominio DuckDNS, no para la IP local: si entras por `https://192.168.…:9001` el navegador avisará de que el certificado no coincide. Desde la red local, lo más cómodo es seguir usando `http://IP_DE_TU_HA:9001`; el HTTPS queda para el acceso remoto y para tener PWA/offline.
 
 ### Sin HTTPS: qué funciona y qué no
 
 - ✅ La aplicación completa, el calendario, el historial, las exportaciones y la API externa funcionan por HTTP.
 - ✅ Puedes abrirla desde el móvil y crear un acceso directo en la pantalla de inicio.
 - ❌ El navegador no permitirá instalar la PWA ni usar la caché offline, porque el service worker exige HTTPS o `localhost`.
-- ⚠️ El PIN viaja sin cifrar por la red local. Úsala solo en tu red de confianza y no expongas el puerto `3000` directamente a Internet.
+- ⚠️ El PIN viaja sin cifrar por la red local. Úsala solo en tu red de confianza y no expongas el puerto directamente a Internet sin HTTPS.
 
 No necesitas Nabu Casa ni un proxy inverso para este uso. Si más adelante quieres instalarla como PWA y tener offline, la opción más sencilla es Tailscale con HTTPS o un túnel de Cloudflare; no es necesario para empezar.
 
@@ -131,7 +171,7 @@ Con HTTP puedes tener Echo como un icono más, a pantalla completa, sin instalar
 
 **Android (Chrome, Edge, Brave)**
 
-1. Abre `http://IP_DE_TU_HA:3000` en el navegador e introduce el PIN.
+1. Abre `http://IP_DE_TU_HA:9001` en el navegador e introduce el PIN.
 2. Menú `⋮` → **Añadir a pantalla de inicio** → **Añadir**.
 3. El icono abre Echo sin barra de direcciones. Si el navegador ofrece «Instalar aplicación», ignóralo: sin HTTPS no llegará a completarse.
 
@@ -150,7 +190,7 @@ Con HTTP puedes tener Echo como un icono más, a pantalla completa, sin instalar
 | Funciona sin cobertura | ❌ | ✅ |
 | Actualizaciones | Al abrir la página | En segundo plano |
 
-> **Usa siempre la misma URL.** La sesión está ligada al origen: si un día entras por `http://192.168.1.50:3000` y otro por `http://homeassistant.local:3000`, te pedirá el PIN de nuevo.
+> **Usa siempre la misma URL.** La sesión está ligada al origen: si un día entras por `http://192.168.1.50:9001` y otro por `http://homeassistant.local:9001`, te pedirá el PIN de nuevo.
 
 
 ### Instalar con Portainer (opcional, sin publicar imagen)
@@ -161,7 +201,7 @@ No hace falta subir la imagen a Docker Hub ni a ningún registro. Portainer pued
 2. Repository URL: `https://github.com/stugemusa/echo`
 3. Reference: `refs/heads/main`
 4. Compose path: `docker-compose.yml`
-5. Añade las variables de entorno `APP_PIN`, `API_TOKEN`, `SESSION_SECRET` y `TZ`.
+5. Añade las variables de entorno `APP_PIN`, `ADMIN_PIN` (opcional), `API_TOKEN`, `SESSION_SECRET` y `TZ`.
 6. Pulsa **Deploy the stack**. Portainer clona el repo y ejecuta el `build` definido en `docker-compose.yml`, usando `echo/` como contexto.
 
 La base de datos quedará en la carpeta `data/` del stack. En HA OS, sin embargo, **el add-on es más sencillo**: Home Assistant ya construye y gestiona el contenedor, lo arranca al inicio, lo incluye en las copias de seguridad y no requiere Portainer.
@@ -205,13 +245,29 @@ Cada día admite un máximo de **3 repasos pendientes**. Si al calcular una fech
 
 Los repasos de un mismo tema nunca se apilan en el mismo día y no se programa nada más allá de la fecha del examen.
 
-### 5. Mover un repaso
+### 5. Mover o replanificar un repaso
 
-Desde la vista diaria puedes pulsar el icono de mover en cualquier repaso pendiente. Al cambiar la fecha:
+Desde la vista diaria puedes pulsar el icono de mover en cualquier repaso pendiente, sea de hoy o de un día futuro. Al cambiar la fecha:
 
 - el repaso elegido se coloca en la nueva fecha (con búsqueda de hueco si está llena);
-- todos los repasos posteriores de ese tema se recalculan manteniendo los intervalos guardados;
+- **todos los repasos posteriores de ese tema se recalculan** manteniendo los intervalos guardados;
 - si hay desplazamientos por carga, se muestran igualmente en el modal de confirmación.
+
+### 6. Planificar un repaso a mano
+
+En cualquier día (hoy o futuro) puedes pulsar **Planificar repaso** para reservar un repaso sin registrar un estudio previo. Indica el tema y la fecha; Echo comprueba el máximo diario y te propone otro día si está completo.
+
+Los **días futuros** no permiten registrar estudio: pulsar un repaso futuro abre directamente el cambio de fecha, y el botón de registrar solo aparece en hoy o en días pasados. Así el registro de estudio siempre refleja algo que ya ha ocurrido.
+
+### 7. Señales: solo la siguiente
+
+Las señales **no se planifican con antelación** como los repasos. A partir de la última señal:
+
+- el calendario solo dibuja **la siguiente marca**, y solo **dos días antes** de su fecha;
+- las marcas ya alcanzadas (😢, 😭, 💔…) se mantienen visibles como historial;
+- una nueva señal reinicia el ciclo y vuelve a dibujar ❤️.
+
+Ejemplo: si hoy hay señal y la siguiente marca toca a los 7 días, el icono 😢 aparecerá el día 5 y se quedará a partir de ahí. Hasta entonces, el calendario solo muestra el corazón de hoy.
 
 ---
 
@@ -244,7 +300,7 @@ Cuerpo opcional:
 ### Ejemplo con curl
 
 ```bash
-curl -X POST "http://homeassistant.local:3000/api/signal" \
+curl -X POST "http://homeassistant.local:9001/api/signal" \
   -H "x-api-token: $API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"source":"home-assistant","note":"Sigo aquí"}'
@@ -256,7 +312,7 @@ curl -X POST "http://homeassistant.local:3000/api/signal" \
 # configuration.yaml
 rest_command:
   echo_signal:
-    url: "http://homeassistant.local:3000/api/signal"
+    url: "http://homeassistant.local:9001/api/signal"
     method: POST
     headers:
       x-api-token: !secret echo_api_token
@@ -291,34 +347,39 @@ A partir de la **última señal**:
 | +31 días sin señal | 💔💔💔 |
 | … cada 5 días | un 💔 más |
 
+> **Visibilidad:** cada marca aparece en el calendario **dos días antes** de su fecha y se queda a partir de entonces. Nunca se muestran varias marcas futuras a la vez: solo la siguiente.
+
 Una nueva llamada a `POST /api/signal` reinicia por completo el ciclo y vuelve a dibujar ❤️ en el día actual. Los corazones de señales anteriores se conservan como historial visual.
 
-Desde Ajustes también puedes **marcar la señal de hoy** manualmente (sin necesidad de token).
+El perfil de administración puede **marcar la señal de hoy** desde Ajustes o desde el aviso del calendario (sin necesidad de token).
+
+Además, el calendario muestra al principio un **aviso discreto** con los días transcurridos desde la última señal. El texto es variado y se vuelve menos sutil con el tiempo, para invitar a dejar un corazón nuevo.
 
 ---
 
 ## API HTTP
 
-Todas las rutas, salvo `/api/auth`, `/api/session`, `/api/health` y `/api/signal`, requieren la cookie de sesión.
+Todas las rutas, salvo `/api/auth`, `/api/session`, `/api/health` y `/api/signal`, requieren la cookie de sesión. Las marcadas como **admin** exigen además el perfil de administración.
 
-| Método | Ruta | Descripción |
-| --- | --- | --- |
-| `POST` | `/api/auth` | Valida el PIN y crea la cookie de sesión. |
-| `POST` | `/api/logout` | Cierra la sesión. |
-| `GET` | `/api/session` | Estado de autenticación. |
-| `GET` | `/api/overview` | Resumen de hoy, atrasados, próximos 7 días, examen y señal. |
-| `GET` | `/api/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD` | Repasos y marcas de señal por día (máx. 150 días). |
-| `POST` | `/api/studies` | Registra un estudio y genera la cascada. |
-| `PATCH` | `/api/reviews/:id` | Mueve un repaso y recalcula los posteriores. |
-| `DELETE` | `/api/reviews/:id` | Elimina un repaso pendiente. |
-| `GET` | `/api/history?q=&sort=date\|topic` | Historial agrupado por tema. |
-| `GET` | `/api/settings` | Ajustes, estado de la API y señal. |
-| `PUT` | `/api/settings` | Guarda la fecha de examen y el máximo diario. |
-| `POST` | `/api/signals` | Marca la señal de hoy desde la interfaz. |
-| `GET` | `/api/export?format=json\|csv` | Copia de seguridad completa o CSV de repasos. |
-| `POST` | `/api/signal` | API externa protegida por `API_TOKEN`. |
+| Método | Ruta | Perfil | Descripción |
+| --- | --- | --- | --- |
+| `POST` | `/api/auth` | — | Valida el PIN, resuelve el perfil y crea la cookie de sesión. |
+| `POST` | `/api/logout` | — | Cierra la sesión. |
+| `GET` | `/api/session` | — | Estado de autenticación y perfil activo. |
+| `GET` | `/api/overview` | usuario | Resumen de hoy, atrasados, próximos 7 días, examen y señal. |
+| `GET` | `/api/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD` | usuario | Repasos y marcas de señal por día (máx. 150 días). |
+| `POST` | `/api/studies` | usuario | Registra un estudio de hoy o del pasado y genera la cascada. |
+| `POST` | `/api/plan` | usuario | Planifica un repaso manual en una fecha (hoy o futura). |
+| `PATCH` | `/api/reviews/:id` | usuario | Cambia la fecha de un repaso y recalcula los posteriores. |
+| `DELETE` | `/api/reviews/:id` | usuario | Elimina un repaso pendiente. |
+| `GET` | `/api/history?q=&sort=date\|topic` | usuario | Historial agrupado por tema. |
+| `GET` | `/api/settings` | usuario | Ajustes básicos; el administrador recibe además API, intervalos y señal. |
+| `PUT` | `/api/settings` | usuario | Guarda la fecha de examen (el máximo diario solo lo cambia el administrador). |
+| `POST` | `/api/signals` | **admin** | Marca la señal de hoy desde la interfaz. |
+| `GET` | `/api/export?format=json\|csv` | usuario | Copia de seguridad completa o CSV de repasos. |
+| `POST` | `/api/signal` | — | API externa protegida por `API_TOKEN`. |
 
-Si `POST /api/studies` o `PATCH /api/reviews/:id` detectan colisiones, responden `409` con `requiresConfirmation: true`, la lista de `collisions` y un `preview` del plan. Reenvía la misma petición con `"confirm": true` para aplicarlo.
+Si `POST /api/studies` o `PATCH /api/reviews/:id` detectan colisiones, responden `409` con `requiresConfirmation: true`, la lista de `collisions` y un `preview` del plan. Reenvía la misma petición con `"confirm": true` para aplicarlo. `POST /api/plan` responde `409` con `suggestedDate` cuando el día está completo.
 
 ---
 
@@ -376,7 +437,7 @@ Para restaurar un JSON necesitarías importarlo en una instalación nueva median
 ```bash
 cd echo
 npm install
-APP_PIN=1234 API_TOKEN=test-token npm start
+APP_PIN=1234 ADMIN_PIN=5678 API_TOKEN=test-token npm start
 ```
 
 Abre `http://localhost:3000`. El archivo SQLite se crea en `./data/echo.db`.
@@ -398,7 +459,7 @@ No hay paso de compilación del frontend. El service worker se registra automát
 - La sesión es una cookie `HttpOnly`, `SameSite=Lax` y firmada con HMAC-SHA256. En HTTPS se añade `Secure`.
 - La API externa está desactivada si no defines `API_TOKEN`; el token nunca se envía al navegador.
 - Cabeceras CSP, `X-Frame-Options`, `X-Content-Type-Options` y `Referrer-Policy`.
-- La base de datos es un archivo local. Protege el acceso a tu red y no expongas el puerto 3000 directamente a Internet sin HTTPS y autenticación.
+- La base de datos es un archivo local. Protege el acceso a tu red y no expongas el puerto del add-on directamente a Internet sin HTTPS y autenticación.
 
 ---
 
@@ -408,6 +469,31 @@ No hay paso de compilación del frontend. El service worker se registra automát
 - La imagen `node:22-bookworm-slim` incluye los binarios de `better-sqlite3` para `amd64` y `arm64`. La arquitectura `armv7` (32 bits) no está soportada por los binarios actuales.
 - El consumo es mínimo: SQLite en un único archivo y una app estática sin frameworks pesados.
 - Si usas Docker directamente y el contenedor no puede escribir en `./data`, crea la carpeta antes con `mkdir -p data` y revisa los permisos del host.
+
+---
+
+## Solución de problemas
+
+### Desde el PC entro, pero el móvil no abre `http://IP_DE_TU_HA:9001`
+
+Casi siempre es la red, no Echo:
+
+1. **Misma red y misma banda.** El móvil debe estar en la misma Wi-Fi que el PC (no datos móviles). Si tienes banda 2,4/5 GHz separadas o una red de invitados, comprueba que ambos están en la principal.
+2. **Aislamiento de clientes.** Muchos routers (o puntos de acceso y repetidores) traen activado «AP isolation» / «aislamiento de clientes»: los dispositivos se ven entre sí por Internet, pero no entre ellos en la red local. Desactívalo o conecta el móvil a la banda del router principal.
+3. **VPN en el móvil.** Una VPN activa envía el tráfico por el túnel y `192.168.…` deja de resolverse. Desactívala y prueba.
+4. **HTTPS forzado.** Si escribes la IP sin `http://`, algunos navegadores prueban `https://` primero y fallan. Escribe la URL completa: `http://192.168.0.130:9001`.
+5. **Puerto.** Confirma en el log del add-on que está escuchando y que el mapeo sigue siendo `9001`. En **Configuración → Red** del add-on revisa el puerto del host.
+6. **Firewall.** Si el PC lleva antivirus con firewall, no afecta al móvil; pero algunos routers tienen «firewall para dispositivos inalámbricos» o control parental que bloquea puertos poco comunes.
+
+### `https://TU-DOMINIO.duckdns.org:9001` no funciona
+
+Tu dominio DuckDNS funciona sin puerto porque el router reenvía el `443` a Home Assistant (8123). Echo es otra aplicación, en otro puerto:
+
+- El add-on, por defecto, sirve **HTTP** en `9001`. Para que responda a `https://`, activa la opción `ssl` del add-on (ver [Servir Echo por HTTPS](#servir-echo-por-https-opcional)).
+- Además, el router debe reenviar el puerto externo `9001` hacia `IP_DE_TU_HA:9001`. Sin ese reenvío, `https://…:9001` no llega a ninguna parte.
+- Con el certificado de DuckDNS la URL remota correcta será `https://TU-DOMINIO.duckdns.org:9001`, no `https://IP:9001` (el certificado no cubre la IP).
+
+También puedes reutilizar el `443` de Home Assistant con Nabu Casa o un proxy inverso, pero no es necesario: activar `ssl` en el add-on es el camino más corto.
 
 ---
 

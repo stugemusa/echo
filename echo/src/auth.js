@@ -9,8 +9,15 @@ const ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 8;
 const attempts = new Map();
 
-function hmac(value) {
-  return crypto.createHmac('sha256', getSessionSecret()).update(value).digest('base64url');
+/**
+ * Dos perfiles:
+ * - admin_pin (administrador): configuración, señales y API.
+ * - app_pin (usuario): calendario, estudio, historial y fecha del examen.
+ * Si no se define admin_pin, el PIN de APP_PIN actúa como administrador
+ * (compatibilidad con instalaciones de un solo PIN).
+ */
+function pinHash(value) {
+  return crypto.createHash('sha256').update(String(value)).digest();
 }
 
 function safeEqual(a, b) {
@@ -20,28 +27,43 @@ function safeEqual(a, b) {
   return crypto.timingSafeEqual(left, right);
 }
 
-function pinMatches(candidate) {
-  const expected = crypto.createHash('sha256').update(String(config.appPin)).digest();
-  const received = crypto.createHash('sha256').update(String(candidate)).digest();
-  return crypto.timingSafeEqual(expected, received);
+function pinEquals(candidate, expected) {
+  if (!expected) return false;
+  return crypto.timingSafeEqual(pinHash(candidate), pinHash(expected));
 }
 
-function createSessionToken() {
+function resolveRole(pin) {
+  const value = String(pin || '').trim();
+  if (!value) return null;
+  if (pinEquals(value, config.adminPin)) return 'admin';
+  if (pinEquals(value, config.appPin)) {
+    // Un solo PIN configurado: ese PIN manda.
+    return config.adminPin && config.adminPin !== config.appPin ? 'user' : 'admin';
+  }
+  return null;
+}
+
+function hmac(value) {
+  return crypto.createHmac('sha256', getSessionSecret()).update(value).digest('base64url');
+}
+
+function createSessionToken(role) {
   const expires = Date.now() + config.sessionDays * 24 * 60 * 60 * 1000;
   const nonce = crypto.randomBytes(12).toString('base64url');
-  const payload = `${expires}.${nonce}`;
+  const payload = `${expires}.${role}.${nonce}`;
   return `${payload}.${hmac(payload)}`;
 }
 
 function verifySessionToken(token) {
-  if (!token || typeof token !== 'string') return false;
+  if (!token || typeof token !== 'string') return null;
   const parts = token.split('.');
-  if (parts.length !== 3) return false;
-  const [expiresRaw, nonce, signature] = parts;
+  if (parts.length !== 4) return null;
+  const [expiresRaw, role, nonce, signature] = parts;
+  if (!['admin', 'user'].includes(role)) return null;
   const expires = Number(expiresRaw);
-  if (!Number.isFinite(expires) || expires < Date.now()) return false;
-  const payload = `${expiresRaw}.${nonce}`;
-  return safeEqual(signature, hmac(payload));
+  if (!Number.isFinite(expires) || expires < Date.now()) return null;
+  const payload = `${expiresRaw}.${role}.${nonce}`;
+  return safeEqual(signature, hmac(payload)) ? { role } : null;
 }
 
 function parseCookies(header = '') {
@@ -57,14 +79,15 @@ function parseCookies(header = '') {
 
 function getSessionFromRequest(req) {
   const cookies = parseCookies(req.headers.cookie || '');
-  if (verifySessionToken(cookies[COOKIE_NAME])) return true;
+  const fromCookie = verifySessionToken(cookies[COOKIE_NAME]);
+  if (fromCookie) return fromCookie;
   const header = req.headers['x-session-token'];
-  if (header && verifySessionToken(String(header))) return true;
-  return false;
+  if (header) return verifySessionToken(String(header));
+  return null;
 }
 
-function sessionCookie(req) {
-  const token = createSessionToken();
+function sessionCookie(req, role) {
+  const token = createSessionToken(role);
   const secure = req.secure || req.headers['x-forwarded-proto'] === 'https';
   const parts = [
     `${COOKIE_NAME}=${encodeURIComponent(token)}`,
@@ -82,8 +105,24 @@ function clearCookie() {
 }
 
 function requireAuth(req, res, next) {
-  if (getSessionFromRequest(req)) return next();
-  return res.status(401).json({ error: 'unauthorized', message: 'Sesión no válida o caducada.' });
+  const session = getSessionFromRequest(req);
+  if (!session) {
+    return res.status(401).json({ error: 'unauthorized', message: 'Sesión no válida o caducada.' });
+  }
+  req.session = session;
+  return next();
+}
+
+function requireAdmin(req, res, next) {
+  const session = req.session || getSessionFromRequest(req);
+  if (!session) {
+    return res.status(401).json({ error: 'unauthorized', message: 'Sesión no válida o caducada.' });
+  }
+  if (session.role !== 'admin') {
+    return res.status(403).json({ error: 'forbidden', message: 'Esta acción requiere el perfil de administración.' });
+  }
+  req.session = session;
+  return next();
 }
 
 function isRateLimited(ip) {
@@ -127,11 +166,12 @@ function hasValidApiToken(req) {
 
 module.exports = {
   COOKIE_NAME,
-  pinMatches,
+  resolveRole,
   sessionCookie,
   clearCookie,
   getSessionFromRequest,
   requireAuth,
+  requireAdmin,
   isRateLimited,
   registerFailure,
   clearFailures,
