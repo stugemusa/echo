@@ -3110,6 +3110,17 @@ pre.code-block .tok-str {
   color: var(--ink);
 }
 
+.restore-warning {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--amber-line);
+  border-radius: 8px;
+  background: var(--amber-bg);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--amber-strong);
+}
+
 .status-line {
   display: flex;
   align-items: center;

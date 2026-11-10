@@ -896,9 +896,10 @@ router.get('/export', (req, res) => {
       return `"${text.replace(/"/g, '""')}"`;
     };
     const lines = [
-      ['Tema', 'Fecha planificada', 'Estado', 'Fecha completado', 'Intervalo (días)', 'Comentarios'].join(','),
+      ['Tipo', 'Tema', 'Fecha', 'Estado', 'Fecha completado', 'Intervalo (días)', 'Comentarios'].join(','),
       ...reviews.map((row) =>
         [
+          escape('Repaso'),
           escape(row.topic_code),
           escape(row.due_date),
           escape(row.status === 'done' ? 'Completado' : 'Pendiente'),
@@ -907,9 +908,20 @@ router.get('/export', (req, res) => {
           escape(row.comments || ''),
         ].join(',')
       ),
+      ...signals.map((row) =>
+        [
+          escape('Señal'),
+          '',
+          escape(row.date),
+          '',
+          '',
+          '',
+          escape(row.note || ''),
+        ].join(',')
+      ),
     ];
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="echo-repasos-${stamp}.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="echo-datos-${stamp}.csv"`);
     return res.send(`\uFEFF${lines.join('\r\n')}`);
   }
 

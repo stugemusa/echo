@@ -419,7 +419,7 @@ Todas las rutas, salvo `/api/auth`, `/api/session`, `/api/health` y `/api/signal
 | `GET` | `/api/settings` | usuario | Ajustes básicos; el administrador recibe además API, intervalos y señal. |
 | `PUT` | `/api/settings` | usuario | Guarda la fecha de examen (el máximo diario solo lo cambia el administrador). |
 | `POST` | `/api/signals` | **admin** | Marca la señal de hoy desde la interfaz. |
-| `GET` | `/api/export?format=json\|csv` | usuario | Copia de seguridad completa o CSV de repasos. |
+| `GET` | `/api/export?format=json\|csv` | usuario | Copia JSON completa o CSV de datos (repasos y señales). |
 | `POST` | `/api/reset` | **admin** | Vacía los datos de estudio (`keep_settings` conserva examen y máximo diario). |
 | `POST` | `/api/restore` | **admin** | Restaura una copia (mismo formato que la exportación JSON). Reemplaza todo. |
 | `POST` | `/api/signal` | — | API externa protegida por `API_TOKEN`. |
@@ -471,11 +471,12 @@ repo/
 En **Ajustes → Datos, copias y restauración**:
 
 - **Copia JSON:** descarga un volcado completo (ajustes, temas, repasos y señales). Es el formato bueno para restaurar.
-- **CSV:** útil para abrir la planificación y el historial en una hoja de cálculo.
+- **CSV de datos:** una fila por repaso **y una por señal** (columna `Tipo`), útil para abrir todo en una hoja de cálculo.
 - **Imprimir / PDF:** genera una vista limpia con la planificación pendiente y el historial completo.
-- **Restaurar:** elige un archivo **JSON** (copia de Echo) o un **CSV** de repasos. Antes de tocar nada te muestra un resumen (temas, repasos completados y pendientes, señales) y pide confirmación. La restauración **reemplaza** los datos actuales.
+- **Restaurar:** elige un archivo **JSON** (copia de Echo) o un **CSV de datos**. Antes de tocar nada te muestra un resumen (temas, repasos completados y pendientes, señales) y pide confirmación. La restauración **reemplaza** los datos actuales.
   - El JSON restaura todo, incluida la fecha del examen y las señales.
-  - El CSV solo contiene temas y repasos (no tiene señales ni la fecha del examen).
+  - El CSV restaura temas, repasos y señales. La fecha del examen no viaja en el CSV, así que se conserva la que tengas puesta.
+  - Un CSV antiguo (sin columna `Tipo`) no trae señales: el diálogo te avisa antes de continuar.
 - **Empezar de cero:** borra todos los temas, repasos y señales. Puedes conservar la fecha del examen y el máximo diario (marcado por defecto).
 
 Todo esto es solo para el perfil de administración, y tanto el reset como la restauración piden confirmación porque reemplazan datos.

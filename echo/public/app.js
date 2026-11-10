@@ -2019,12 +2019,12 @@ automation:
         <p class="setting-sub">Exportar</p>
         <div class="settings-actions">
           <button type="button" class="btn btn-ghost" data-action="export-json"><svg class="icon icon-sm"><use href="#i-download"></use></svg> Copia JSON</button>
-          <button type="button" class="btn btn-ghost" data-action="export-csv"><svg class="icon icon-sm"><use href="#i-download"></use></svg> CSV</button>
+          <button type="button" class="btn btn-ghost" data-action="export-csv"><svg class="icon icon-sm"><use href="#i-download"></use></svg> CSV de datos</button>
           <button type="button" class="btn btn-ghost" data-action="print"><svg class="icon icon-sm"><use href="#i-printer"></use></svg> Imprimir / PDF</button>
         </div>
 
         <p class="setting-sub">Restaurar</p>
-        <p class="hint">Acepta la copia JSON de Echo o el CSV de repasos. La restauración <strong>reemplaza</strong> los datos actuales.</p>
+        <p class="hint">Acepta la copia JSON de Echo o el CSV de datos. La restauración <strong>reemplaza</strong> los datos actuales.</p>
         <div class="settings-actions">
           <button type="button" class="btn btn-soft" data-action="pick-backup">
             <svg class="icon icon-sm"><use href="#i-upload"></use></svg>
@@ -2322,25 +2322,38 @@ automation:
     if (!rows.length) throw new Error('El CSV está vacío.');
     const header = rows[0].map((cell) => String(cell).trim().toLowerCase());
     const column = (...names) => header.findIndex((name) => names.some((candidate) => name.startsWith(candidate)));
+    const iType = column('tipo');
     const iTopic = column('tema');
     const iDue = column('fecha planificada', 'fecha');
     const iStatus = column('estado');
     const iDone = column('fecha completado', 'completado');
     const iInterval = column('intervalo');
     const iNotes = column('comentario', 'nota');
-    if (iTopic < 0 || iDue < 0) {
-      throw new Error('El CSV no tiene las columnas esperadas (Tema, Fecha planificada…).');
+    if (iDue < 0 || (iTopic < 0 && iType < 0)) {
+      throw new Error('El CSV no tiene las columnas esperadas (Tema y Fecha).');
     }
 
     const timestamp = new Date().toISOString();
     const isDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+    const cell = (row, index) => (index >= 0 ? String(row[index] ?? '').trim() : '');
     const topics = [];
     const byCode = new Map();
     const reviews = [];
+    const signals = [];
 
-    for (const cells of rows.slice(1)) {
-      const code = String(cells[iTopic] ?? '').trim();
-      const due = String(cells[iDue] ?? '').trim();
+    for (const row of rows.slice(1)) {
+      const type = cell(row, iType).toLowerCase();
+      // Filas de señal (formato «Tipo»): no llevan tema ni repaso.
+      if (type.startsWith('señal') || type.startsWith('senal') || type.startsWith('signal')) {
+        const date = cell(row, iDue);
+        if (!isDate(date)) continue;
+        const note = cell(row, iNotes);
+        signals.push({ date, received_at: `${date}T00:00:00.000Z`, source: 'import', note: note || null });
+        continue;
+      }
+
+      const code = cell(row, iTopic);
+      const due = cell(row, iDue);
       if (!code || !isDate(due)) continue;
 
       const key = code.toLowerCase();
@@ -2351,11 +2364,11 @@ automation:
         byCode.set(key, topicId);
       }
 
-      const statusText = iStatus >= 0 ? String(cells[iStatus] ?? '').trim().toLowerCase() : '';
+      const statusText = cell(row, iStatus).toLowerCase();
       const isDone = statusText.startsWith('complet') || statusText === 'done';
-      const completedOn = iDone >= 0 ? String(cells[iDone] ?? '').trim() : '';
-      const rawInterval = iInterval >= 0 ? Number(String(cells[iInterval] ?? '').replace(',', '.')) : 0;
-      const notes = iNotes >= 0 ? String(cells[iNotes] ?? '').trim() : '';
+      const completedOn = cell(row, iDone);
+      const rawInterval = Number(cell(row, iInterval).replace(',', '.'));
+      const notes = cell(row, iNotes);
 
       reviews.push({
         topic_id: topicId,
@@ -2370,16 +2383,16 @@ automation:
       });
     }
 
-    if (!topics.length) throw new Error('El CSV no contiene repasos válidos.');
-    return { app: 'echo', source: 'csv', settings: {}, topics, reviews, signals: [] };
+    if (!topics.length && !signals.length) throw new Error('El CSV no contiene repasos ni señales.');
+    return { app: 'echo', source: 'csv', settings: {}, topics, reviews, signals };
   }
 
   function backupSummary(payload, name) {
     const topics = Array.isArray(payload.topics) ? payload.topics : [];
     const reviews = Array.isArray(payload.reviews) ? payload.reviews : [];
     const signals = Array.isArray(payload.signals) ? payload.signals : [];
-    if (!topics.length && !reviews.length) {
-      throw new Error('El archivo no contiene temas ni repasos.');
+    if (!topics.length && !reviews.length && !signals.length) {
+      throw new Error('El archivo no contiene datos de Echo.');
     }
     return {
       name,
@@ -2398,6 +2411,13 @@ automation:
       <li><span>Repasos pendientes</span><strong>${summary.pending}</strong></li>
       <li><span>Señales</span><strong>${summary.signals}</strong></li>
     `;
+    const warning = $('#restoreWarning');
+    if (warning) {
+      warning.textContent = summary.signals === 0
+        ? 'Esta copia no incluye señales: las actuales se quedarán a cero.'
+        : '';
+      warning.hidden = summary.signals !== 0;
+    }
     $('#restoreError').textContent = '';
     showDialog($('#restoreDialog'));
   }

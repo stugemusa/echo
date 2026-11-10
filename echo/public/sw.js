@@ -1,9 +1,9 @@
 'use strict';
 
 /* Echo · Service Worker
-   App shell cache-first + API network-first con copia para lectura offline. */
+   App shell network-first (con caché como respaldo) + API network-first. */
 
-const VERSION = 'echo-v1.0.0';
+const VERSION = 'echo-v2';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const MAX_RUNTIME_ENTRIES = 90;
@@ -65,17 +65,22 @@ async function networkFirst(request) {
   }
 }
 
-async function staleWhileRevalidate(request) {
-  const cached = await caches.match(request);
-  const network = fetch(request)
-    .then((response) => {
-      if (response.ok) {
-        caches.open(SHELL_CACHE).then((cache) => cache.put(request, response.clone()));
-      }
-      return response;
-    })
-    .catch(() => cached);
-  return cached || network;
+/**
+ * Archivos propios (html, css, js, iconos, fuentes): red primero y caché
+ * como respaldo. Así, al actualizar el add-on, la primera recarga ya trae la
+ * versión nueva; sin conexión se sigue sirviendo la copia guardada.
+ */
+async function networkFirstAsset(request) {
+  const cache = await caches.open(SHELL_CACHE);
+  try {
+    const response = await fetch(request);
+    if (response.ok) cache.put(request, response.clone());
+    return response;
+  } catch (error) {
+    const cached = (await cache.match(request)) || (await caches.match(request));
+    if (cached) return cached;
+    throw error;
+  }
 }
 
 self.addEventListener('fetch', (event) => {
@@ -111,7 +116,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    staleWhileRevalidate(request).catch(() =>
+    networkFirstAsset(request).catch(() =>
       new Response('', { status: 504, statusText: 'Offline' })
     )
   );

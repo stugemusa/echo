@@ -56,9 +56,10 @@ incluido en la copia.
 
 Desde **Ajustes → Datos, copias y restauración** (solo administración):
 
-- **Exportar**: copia JSON completa, CSV de repasos o PDF.
+- **Exportar**: copia JSON completa, CSV de datos (repasos y señales) o PDF.
 - **Restaurar**: elige un JSON de Echo o un CSV. Muestra un resumen y reemplaza
-  los datos actuales tras confirmar. El CSV no incluye señales ni fecha del examen.
+  los datos actuales tras confirmar. El CSV no lleva la fecha del examen (se
+  conserva la actual); un CSV antiguo sin señales avisa de que se perderán.
 - **Empezar de cero**: borra temas, repasos y señales. Puedes conservar la fecha
   del examen y el máximo diario.
 

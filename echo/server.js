@@ -41,14 +41,22 @@ app.use((req, res, next) => {
 
 app.use('/api', api);
 
+// La app cambia con cada versión: estos archivos se revalidan siempre (etag).
+const REVALIDATE = new Set(['index.html', 'sw.js', 'manifest.json', 'app.js', 'styles.css']);
+
 app.use(
   express.static(config.publicDir, {
     etag: true,
-    maxAge: '1h',
+    lastModified: true,
     setHeaders(res, filePath) {
       const name = path.basename(filePath);
-      if (name === 'index.html' || name === 'sw.js' || name === 'manifest.json') {
+      if (REVALIDATE.has(name)) {
+        // El navegador pregunta con etag: 304 mientras no haya cambios, y la
+        // versión nueva entra en la primera recarga tras actualizar el add-on.
         res.setHeader('Cache-Control', 'no-cache');
+      } else {
+        // Iconos y tipografías cambian poco.
+        res.setHeader('Cache-Control', 'public, max-age=86400');
       }
     },
   })

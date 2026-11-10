@@ -1,6 +1,6 @@
 {
   "name": "echo-repaso-espaciado",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "description": "Echo · Sistema de arrastre para oposiciones con repaso espaciado",
   "main": "server.js",
