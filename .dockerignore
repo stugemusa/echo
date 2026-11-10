@@ -1,0 +1,10 @@
+node_modules
+data
+.git
+.gitignore
+*.db
+*.db-shm
+*.db-wal
+.env
+README.md
+ha-addon

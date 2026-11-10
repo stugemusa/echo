@@ -1,0 +1,27 @@
+services:
+  echo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: echo
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      APP_PIN: "${APP_PIN:-1234}"
+      API_TOKEN: "${API_TOKEN:-}"
+      SESSION_SECRET: "${SESSION_SECRET:-}"
+      TZ: "${TZ:-Europe/Madrid}"
+      DB_PATH: /data/echo.db
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

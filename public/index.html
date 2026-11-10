@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#007A33">
+  <meta name="description" content="Echo · Sistema de arrastre para oposiciones con repaso espaciado, calendario y planificación hasta el examen.">
+  <meta name="color-scheme" content="light">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Echo">
+  <title>Echo · Repaso espaciado</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preload" href="fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/instrument-serif-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<svg class="svg-sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></symbol>
+  <symbol id="i-printer" viewBox="0 0 24 24"><path d="M7 8V3h10v5"/><rect x="4" y="8" width="16" height="8" rx="2"/><path d="M7 13h10v8H7z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.8 5.6a5.5 5.5 0 0 0-7.8 0L12 6.6l-1.1-1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 22l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8z"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3L2 21h20L12 3z"/><path d="M12 9v5M12 17.5v.5"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M15 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 17l-5-5 5-5M5 12h11"/></symbol>
+  <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8.2-8 9-4.5-.8-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-install" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M12 6v8M9 11l3 3 3-3"/></symbol>
+  <symbol id="i-today" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="12" cy="15.5" r="1.5" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
+<div class="boot" id="boot">
+  <div class="boot-mark"><img src="icons/icon-192.png" alt=""></div>
+  <p class="boot-word">Echo</p>
+  <div class="boot-line"><span></span></div>
+</div>
+
+<!-- ============================ ACCESO ============================ -->
+<div class="gate" id="authGate" hidden>
+  <div class="gate-art">
+    <div class="gate-rings" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <div class="gate-brand">
+      <img src="icons/icon-192.png" alt="" class="gate-mark">
+      <span>Echo</span>
+    </div>
+    <div class="gate-quote">
+      <p class="eyebrow eyebrow-light">Sistema de arrastre · Oposiciones</p>
+      <h1>La constancia<br><em>se planifica.</em></h1>
+      <p class="gate-copy">Repaso espaciado, calendario y una cadencia que te acompaña hasta el día del examen.</p>
+    </div>
+    <div class="gate-foot-art">
+      <span>Hecho para tu memoria</span>
+      <span class="gate-rings-mini" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+  </div>
+  <div class="gate-panel">
+    <div class="gate-form-wrap">
+      <p class="eyebrow">Acceso privado</p>
+      <h2>Entra en tu espacio</h2>
+      <p class="muted">Introduce el PIN configurado en tu Home Assistant. La sesión se recordará durante 30 días en este dispositivo.</p>
+      <form id="pinForm" class="pin-form" autocomplete="off">
+        <label for="pinInput">PIN de acceso</label>
+        <input id="pinInput" class="pin-input" type="password" inputmode="numeric" autocomplete="current-password" maxlength="32" placeholder="••••" required>
+        <p class="form-error" id="pinError" role="alert"></p>
+        <button type="submit" class="btn btn-primary btn-block" id="pinSubmit">
+          <span>Entrar en Echo</span>
+          <svg class="icon"><use href="#i-arrow-right"></use></svg>
+        </button>
+      </form>
+      <div class="gate-hint">
+        <svg class="icon"><use href="#i-shield"></use></svg>
+        <span>Tus datos viven en tu propio servidor. Sin nubes, sin cuentas.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ APP ============================ -->
+<div class="app" id="app" hidden>
+  <aside class="sidebar">
+    <a class="brand" href="#calendar" data-nav="calendar" aria-label="Echo, ir al calendario">
+      <img src="icons/icon-192.png" alt="" class="brand-mark">
+      <span class="brand-word">Echo<span class="brand-dot">.</span></span>
+    </a>
+
+    <button type="button" class="sidebar-add" data-action="open-study">
+      <span class="sidebar-add-plus"><svg class="icon"><use href="#i-plus"></use></svg></span>
+      <span>Registrar estudio</span>
+      <kbd>R</kbd>
+    </button>
+
+    <nav class="nav" aria-label="Navegación principal">
+      <p class="nav-label">Espacio</p>
+      <button type="button" class="nav-item is-active" data-nav="calendar">
+        <svg class="icon"><use href="#i-calendar"></use></svg>
+        <span>Calendario</span>
+      </button>
+      <button type="button" class="nav-item" data-nav="history">
+        <svg class="icon"><use href="#i-history"></use></svg>
+        <span>Historial</span>
+      </button>
+      <button type="button" class="nav-item" data-nav="settings">
+        <svg class="icon"><use href="#i-settings"></use></svg>
+        <span>Ajustes</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-spacer"></div>
+    <div class="sidebar-exam" id="sidebarExam"></div>
+    <div class="sidebar-signal" id="sidebarSignal"></div>
+    <div class="sidebar-foot">
+      <span class="status-dot" id="connectionDot"></span>
+      <span id="sidebarFootText">Sincronizado · v1.0</span>
+    </div>
+  </aside>
+
+  <div class="workspace">
+    <header class="topbar">
+      <div class="topbar-brand">
+        <img src="icons/icon-192.png" alt="" class="brand-mark">
+        <span>Echo</span>
+      </div>
+      <div class="topbar-context">
+        <span class="topbar-date" id="topbarDate"></span>
+        <span class="offline-pill" id="offlinePill" hidden>Sin conexión</span>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="btn btn-ghost btn-sm" data-action="go-today">
+          <svg class="icon"><use href="#i-today"></use></svg>
+          <span>Hoy</span>
+        </button>
+        <button type="button" class="btn btn-primary btn-sm topbar-add" data-action="open-study">
+          <svg class="icon"><use href="#i-plus"></use></svg>
+          <span>Registrar</span>
+        </button>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ======================= CALENDARIO ======================= -->
+      <section class="view" id="view-calendar">
+        <div class="page-head">
+          <div>
+            <p class="eyebrow">Planificación</p>
+            <h1 id="calendarTitle">Calendario</h1>
+            <p class="page-sub" id="calendarSub"></p>
+          </div>
+          <div class="page-head-meta" id="examChip"></div>
+        </div>
+
+        <h2 class="sr-only">Planificación de repasos</h2>
+
+        <div class="calendar-layout">
+          <div class="calendar-main">
+            <div class="calendar-card">
+              <div class="cal-toolbar">
+                <div class="cal-nav">
+                  <button type="button" class="icon-btn bordered" data-action="prev" aria-label="Periodo anterior">
+                    <svg class="icon"><use href="#i-chevron-left"></use></svg>
+                  </button>
+                  <button type="button" class="icon-btn bordered" data-action="next" aria-label="Periodo siguiente">
+                    <svg class="icon"><use href="#i-chevron-right"></use></svg>
+                  </button>
+                  <button type="button" class="btn btn-ghost btn-sm cal-today" data-action="go-today">Hoy</button>
+                </div>
+                <div class="seg" role="tablist" aria-label="Vista del calendario">
+                  <button type="button" class="seg-item" data-mode="month" role="tab">Mes</button>
+                  <button type="button" class="seg-item" data-mode="week" role="tab">Semana</button>
+                  <button type="button" class="seg-item" data-mode="day" role="tab">Día</button>
+                </div>
+                <div class="cal-toolbar-spacer"></div>
+                <p class="cal-toolbar-note"><span class="mini-heart">❤</span> señal · <span class="mini-face">☹</span> sin señal</p>
+              </div>
+              <div class="calendar-stage" id="calendarStage">
+                <div class="loading-block"><span class="spinner"></span></div>
+              </div>
+            </div>
+
+            <div class="legend">
+              <span class="legend-item"><i class="legend-dot is-pending"></i> Repaso pendiente</span>
+              <span class="legend-item"><i class="legend-dot is-done"></i> Completado</span>
+              <span class="legend-item"><i class="legend-dot is-overdue"></i> Atrasado</span>
+              <span class="legend-spacer"></span>
+              <span class="legend-note" id="loadLegend">Máximo 3 temas por día</span>
+            </div>
+          </div>
+
+          <aside class="rail" id="rail" aria-label="Resumen del día"></aside>
+        </div>
+      </section>
+
+      <!-- ========================= HISTORIAL ======================== -->
+      <section class="view" id="view-history" hidden>
+        <div class="page-head">
+          <div>
+            <p class="eyebrow">Memoria</p>
+            <h1>Historial de repasos</h1>
+            <p class="page-sub">Cada vuelta cuenta. Consulta la cadencia y las notas de cada tema.</p>
+          </div>
+          <button type="button" class="btn btn-ghost" data-action="print">
+            <svg class="icon"><use href="#i-printer"></use></svg>
+            <span>Imprimir</span>
+          </button>
+        </div>
+
+        <h2 class="sr-only">Listado de repasos</h2>
+
+        <div class="stats-grid" id="historyStats"></div>
+
+        <div class="panel history-panel">
+          <div class="panel-toolbar">
+            <label class="search-box">
+              <svg class="icon"><use href="#i-search"></use></svg>
+              <input type="search" id="historySearch" placeholder="Buscar tema…" autocomplete="off" aria-label="Buscar tema">
+            </label>
+            <label class="select-box">
+              <span>Ordenar</span>
+              <select id="historySort" aria-label="Ordenar historial">
+                <option value="date">Último repaso</option>
+                <option value="topic">Número de tema</option>
+              </select>
+            </label>
+          </div>
+          <div id="historyList" class="history-list">
+            <div class="loading-block"><span class="spinner"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================== AJUSTES ========================= -->
+      <section class="view" id="view-settings" hidden>
+        <div class="page-head">
+          <div>
+            <p class="eyebrow">Sistema</p>
+            <h1>Ajustes</h1>
+            <p class="page-sub">La fecha del examen, el acceso y tus copias de seguridad.</p>
+          </div>
+        </div>
+        <h2 class="sr-only">Configuración de Echo</h2>
+        <div id="settingsContent" class="settings-grid">
+          <div class="loading-block"><span class="spinner"></span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <nav class="tabbar" aria-label="Navegación móvil">
+    <button type="button" class="tab-item is-active" data-nav="calendar">
+      <svg class="icon"><use href="#i-calendar"></use></svg>
+      <span>Calendario</span>
+    </button>
+    <button type="button" class="tab-item" data-nav="history">
+      <svg class="icon"><use href="#i-history"></use></svg>
+      <span>Historial</span>
+    </button>
+    <button type="button" class="tab-item" data-nav="settings">
+      <svg class="icon"><use href="#i-settings"></use></svg>
+      <span>Ajustes</span>
+    </button>
+  </nav>
+
+  <button type="button" class="fab" id="fab" data-action="open-study" aria-label="Registrar estudio de hoy">
+    <svg class="icon"><use href="#i-plus"></use></svg>
+  </button>
+</div>
+
+<!-- ====================== MODAL: REGISTRAR ====================== -->
+<dialog class="modal" id="studyDialog" aria-labelledby="studyTitle">
+  <form class="modal-card" id="studyForm" method="dialog">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">Nuevo repaso</p>
+        <h2 id="studyTitle">Registrar estudio</h2>
+      </div>
+      <button type="button" class="icon-btn" data-close="studyDialog" aria-label="Cerrar">
+        <svg class="icon"><use href="#i-x"></use></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="field">
+        <label for="studyCode">¿Qué has estudiado hoy?</label>
+        <div class="suggestions" id="studySuggestions"></div>
+        <input class="input" id="studyCode" type="text" placeholder="Ej. Tema 12 · Acto administrativo" autocomplete="off" maxlength="80">
+        <p class="hint" id="studyCodeHint">Elige un repaso pendiente o escribe un identificador libre.</p>
+      </div>
+
+      <div class="field">
+        <label for="studyComments">Comentarios del repaso <span class="label-optional">opcional</span></label>
+        <textarea class="input textarea" id="studyComments" rows="3" maxlength="2000" placeholder="Qué ha costado, qué repasar, dudas…"></textarea>
+      </div>
+
+      <div class="field">
+        <div class="field-label-row">
+          <label>Siguiente repaso</label>
+          <span class="field-note" id="intervalHint">Por defecto, +3 días</span>
+        </div>
+        <div class="chip-row" id="intervalChips">
+          <button type="button" class="chip is-active" data-interval="3">3 días</button>
+          <button type="button" class="chip" data-interval="7">7 días</button>
+          <button type="button" class="chip" data-interval="14">14 días</button>
+          <button type="button" class="chip" data-interval="21">21 días</button>
+          <button type="button" class="chip" data-interval="30">30 días</button>
+        </div>
+        <label class="date-line">
+          <span>O elige una fecha exacta</span>
+          <input class="input input-date" id="studyDate" type="date">
+        </label>
+      </div>
+
+      <div class="load-preview" id="loadPreview">
+        <div class="load-preview-head">
+          <span class="load-preview-title">Carga de la semana</span>
+          <span class="load-preview-note" id="loadPreviewNote"></span>
+        </div>
+        <div class="load-days" id="loadDays"></div>
+      </div>
+
+      <p class="form-error" id="studyError" role="alert"></p>
+    </div>
+
+    <div class="modal-foot">
+      <button type="button" class="btn btn-ghost" data-close="studyDialog">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="studySubmit">
+        <svg class="icon"><use href="#i-check"></use></svg>
+        <span>Registrar estudio</span>
+      </button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ====================== MODAL: MOVER ========================= -->
+<dialog class="modal modal-sm" id="moveDialog" aria-labelledby="moveTitle">
+  <form class="modal-card" id="moveForm" method="dialog">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">Cadencia</p>
+        <h2 id="moveTitle">Mover repaso</h2>
+      </div>
+      <button type="button" class="icon-btn" data-close="moveDialog" aria-label="Cerrar">
+        <svg class="icon"><use href="#i-x"></use></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="move-topic">
+        <span class="move-topic-icon"><svg class="icon"><use href="#i-book"></use></svg></span>
+        <div>
+          <p id="moveTopicCode">Tema</p>
+          <span id="moveTopicMeta">Repaso pendiente</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="moveDate">Nueva fecha</label>
+        <input class="input input-date" id="moveDate" type="date" required>
+        <p class="hint">Los repasos posteriores se recalculan manteniendo la cadencia hasta el examen.</p>
+      </div>
+      <div class="load-preview" id="movePreview">
+        <div class="load-preview-head">
+          <span class="load-preview-title">Carga de la semana</span>
+          <span class="load-preview-note" id="movePreviewNote"></span>
+        </div>
+        <div class="load-days" id="moveDays"></div>
+      </div>
+      <p class="form-error" id="moveError" role="alert"></p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-ghost" data-close="moveDialog">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="moveSubmit">Guardar nueva fecha</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- =================== MODAL: COLISIONES ======================= -->
+<dialog class="modal modal-sm" id="collisionDialog" aria-labelledby="collisionTitle">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="collision-heading">
+        <span class="collision-icon"><svg class="icon"><use href="#i-alert"></use></svg></span>
+        <div>
+          <p class="eyebrow">Máximo 3 temas / día</p>
+          <h2 id="collisionTitle">Ajuste de planificación</h2>
+        </div>
+      </div>
+      <button type="button" class="icon-btn" data-close="collisionDialog" aria-label="Cerrar">
+        <svg class="icon"><use href="#i-x"></use></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p class="muted" id="collisionIntro">El día está completo. Echo propone estos movimientos para respetar la carga máxima.</p>
+      <ul class="collision-list" id="collisionList"></ul>
+      <p class="hint">Los repasos de 3 y 7 días buscan hueco hacia delante; los de 14 días o más, hacia atrás.</p>
+      <p class="form-error" id="collisionError" role="alert"></p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-ghost" id="collisionCancel">No, volver</button>
+      <button type="button" class="btn btn-primary" id="collisionConfirm">
+        <svg class="icon"><use href="#i-check"></use></svg>
+        <span>Aceptar ajuste</span>
+      </button>
+    </div>
+  </div>
+</dialog>
+
+<div class="toast-stack" id="toastStack" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
