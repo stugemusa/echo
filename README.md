@@ -89,7 +89,11 @@ openssl rand -hex 32   # SESSION_SECRET
 
 ## Instalación como add-on de Home Assistant OS
 
-El repositorio incluye `config.yaml`, `repository.yaml`, `Dockerfile` y `run.sh`, por lo que puede añadirse como repositorio de add-ons local.
+El repositorio incluye `repository.yaml`, y el add-on está en la carpeta `echo/`, por lo que puede añadirse como repositorio de add-ons de Home Assistant. **No hay que publicar ninguna imagen**: el Supervisor clona el repositorio y construye el contenedor localmente en tu Raspberry Pi.
+
+[![Abrir Home Assistant y añadir el repositorio de Echo](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fstugemusa%2Fecho)
+
+> **Requisito:** Home Assistant OS de 64 bits (`aarch64` en Raspberry Pi 4/5, `amd64` en x86). En instalaciones de 32 bits (`armv7`) el add-on no aparecerá en la tienda.
 
 1. En Home Assistant entra en **Ajustes → Add-ons → Tienda de add-ons**.
 2. Pulsa el menú de los tres puntos (arriba a la derecha) → **Repositorios**.
@@ -97,13 +101,13 @@ El repositorio incluye `config.yaml`, `repository.yaml`, `Dockerfile` y `run.sh`
    ```text
    https://github.com/stugemusa/echo
    ```
-4. Busca **Echo** en la tienda, instálalo y ábrelo.
+4. Busca **Echo** en la tienda, instálalo y ábrelo. La primera compilación puede tardar varios minutos en una Raspberry Pi.
 5. En la pestaña **Configuración** del add-on define:
    - `app_pin`: tu PIN de acceso.
    - `api_token`: token para la API externa (opcional).
    - `session_secret`: opcional; si lo dejas vacío se genera uno.
    - `exam_date`: opcional (`YYYY-MM-DD`).
-6. Inicia el add-on y abre la interfaz web. También puedes activar **Mostrar en la barra lateral**.
+6. Inicia el add-on y pulsa **Abrir interfaz web**. La app queda accesible en `http://homeassistant.local:3000` o `http://IP_DE_TU_HA:3000`.
 7. La app funciona por **HTTP** en tu red local: `http://homeassistant.local:3000` o `http://IP_DE_TU_HA:3000`. Puedes usarla en el navegador del móvil y añadir un acceso directo a la pantalla de inicio. La instalación PWA completa y el modo offline necesitan HTTPS, pero no son necesarios para usar Echo.
 
 > **Almacenamiento:** en modo add-on, la base de datos se guarda en `/data/echo.db`, dentro del volumen persistente del add-on. Los backups de Home Assistant la incluyen si activas la copia de seguridad del add-on.
@@ -130,7 +134,7 @@ No hace falta subir la imagen a Docker Hub ni a ningún registro. Portainer pued
 3. Reference: `refs/heads/main`
 4. Compose path: `docker-compose.yml`
 5. Añade las variables de entorno `APP_PIN`, `API_TOKEN`, `SESSION_SECRET` y `TZ`.
-6. Pulsa **Deploy the stack**. Portainer clona el repo y ejecuta el `build` definido en `docker-compose.yml`, usando `echo-addon/` como contexto.
+6. Pulsa **Deploy the stack**. Portainer clona el repo y ejecuta el `build` definido en `docker-compose.yml`, usando `echo/` como contexto.
 
 La base de datos quedará en la carpeta `data/` del stack. En HA OS, sin embargo, **el add-on es más sencillo**: Home Assistant ya construye y gestiona el contenedor, lo arranca al inicio, lo incluye en las copias de seguridad y no requiere Portainer.
 
@@ -293,8 +297,8 @@ Si `POST /api/studies` o `PATCH /api/reviews/:id` detectan colisiones, responden
 ## Estructura del proyecto
 
 ```text
-echo/
-├── echo-addon/              # Aplicación + add-on de Home Assistant
+repo/
+├── echo/                    # Add-on y aplicación
 │   ├── config.yaml          # Configuración del add-on
 │   ├── Dockerfile
 │   ├── run.sh
@@ -342,7 +346,7 @@ Para restaurar un JSON necesitarías importarlo en una instalación nueva median
 ## Desarrollo local
 
 ```bash
-cd echo-addon
+cd echo
 npm install
 APP_PIN=1234 API_TOKEN=test-token npm start
 ```

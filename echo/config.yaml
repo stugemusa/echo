@@ -15,15 +15,10 @@ ports_description:
   3000/tcp: Interfaz web de Echo
 webui: http://[HOST]:[PORT:3000]
 watchdog: http://[HOST]:[PORT:3000]/api/health
-panel_icon: mdi:calendar-check-outline
-panel_title: Echo
 options:
   app_pin: "1234"
-  api_token: ""
-  session_secret: ""
-  exam_date: ""
 schema:
   app_pin: password
-  api_token: password
-  session_secret: password
-  exam_date: str
+  api_token: password?
+  session_secret: password?
+  exam_date: str?

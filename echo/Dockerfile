@@ -4,6 +4,10 @@
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
+# Herramientas de compilación por si better-sqlite3 no tiene prebuilt para la arquitectura.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 RUN npm ci --omit=dev --no-audit --no-fund
 
 FROM node:22-bookworm-slim
@@ -14,7 +18,7 @@ ENV NODE_ENV=production \
     TZ=Europe/Madrid
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends tini ca-certificates \
+    && apt-get install -y --no-install-recommends tini ca-certificates tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
