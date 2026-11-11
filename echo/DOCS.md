@@ -82,6 +82,15 @@ HTTPS.
 
 La interfaz se adapta sola: en pantallas pequeñas el mes usa números grandes y puntos de color por día, la semana se muestra como lista vertical y la agenda diaria usa botones táctiles.
 
+## Problemas conocidos (probados en real)
+
+**El móvil no llega a la IP del add-on (y el PC sí).** Dos causas habituales, y las dos son del dispositivo o del router, no de Echo:
+
+1. **Android 16 o superior (Pixel y otros):** Chrome necesita el permiso **«Dispositivos cercanos»** para hablar con equipos de la red local. Sin él, todo da `ERR_TOO_MANY_RETRIES`. Se concede en *Ajustes → Aplicaciones → Chrome → Permisos → Dispositivos cercanos*.
+2. **DNS por IPv6 anunciado por el router (Servicio RA):** los móviles usan esos DNS en vez del local, el dominio resuelve a la IP pública y falla. Se arregla desactivando el *Servicio RA* en el router. Comprueba con `chrome://net-internals/#dns` a qué IP resuelve el dominio.
+
+Otros: aislamiento de clientes (AP isolation) en el router o en un punto de acceso, VPN o bloqueador con VPN local en el móvil, «DNS privado» de Android y «DNS seguro» de Chrome (los dos se saltan el DNS local).
+
 ## Sesión
 
 Cualquier perfil puede cerrar sesión desde el icono de salida de la barra superior. La administración lo tiene también en Ajustes.

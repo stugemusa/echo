@@ -529,26 +529,42 @@ No hay paso de compilación del frontend. El service worker se registra automát
 
 ## Solución de problemas
 
-### Desde el PC entro, pero el móvil no abre `http://IP_DE_TU_HA:9001`
+### El PC entra, pero el móvil no llega a la IP del add-on
 
-Casi siempre es la red, no Echo:
+Casi siempre es el dispositivo o la red, no Echo. **Por este orden**, que es de más frecuente a menos:
 
-1. **Misma red y misma banda.** El móvil debe estar en la misma Wi-Fi que el PC (no datos móviles). Si tienes banda 2,4/5 GHz separadas o una red de invitados, comprueba que ambos están en la principal.
-2. **Aislamiento de clientes.** Muchos routers (o puntos de acceso y repetidores) traen activado «AP isolation» / «aislamiento de clientes»: los dispositivos se ven entre sí por Internet, pero no entre ellos en la red local. Desactívalo o conecta el móvil a la banda del router principal.
-3. **VPN en el móvil.** Una VPN activa envía el tráfico por el túnel y `192.168.…` deja de resolverse. Desactívala y prueba.
-4. **HTTPS forzado.** Si escribes la IP sin `http://`, algunos navegadores prueban `https://` primero y fallan. Escribe la URL completa: `http://192.168.0.130:9001`.
-5. **Puerto.** Confirma en el log del add-on que está escuchando y que el mapeo sigue siendo `9001`. En **Configuración → Red** del add-on revisa el puerto del host.
-6. **Firewall.** Si el PC lleva antivirus con firewall, no afecta al móvil; pero algunos routers tienen «firewall para dispositivos inalámbricos» o control parental que bloquea puertos poco comunes.
+1. **Android 16 o superior: permiso «Dispositivos cercanos».** Chrome necesita ese permiso para poder hablar con equipos de la red local. Sin él, las conexiones a `192.168.x.x` fallan con `ERR_TOO_MANY_RETRIES` (o `ERR_CONNECTION_TIMED_OUT`) aunque todo lo demás esté bien.
+   → **Ajustes → Aplicaciones → Chrome → Permisos → Dispositivos cercanos → Permitir.**
+   Otros navegadores y apps tienen permisos equivalentes; si un navegador no llega a la IP y otro sí, mira ahí.
+
+2. **DNS anunciado por IPv6 (RA).** Si el router anuncia servidores DNS por IPv6 (lo que en algunos routers se llama **«Servicio RA»**, *Router Advertisement*), los móviles pueden usar **esos** DNS en vez del tuyo local. Entonces el dominio resuelve a tu **IP pública** y, como el puerto no está reenviado, sale `ERR_CONNECTION_REFUSED`.
+   → Desactiva el *Servicio RA* en el router, o asegúrate de que tu DNS local también se anuncia por IPv6.
+   → Para comprobarlo en el móvil: `chrome://net-internals/#dns` y mira a qué IP resuelve el dominio. Si es tu IP pública, es esto.
+
+3. **Aislamiento de clientes.** Muchos routers, puntos de acceso y repetidores traen «AP isolation» / «aislamiento de clientes»: los dispositivos salen a Internet, pero no se ven entre ellos en la red local. Es típico cuando el PC va por **cable** y el móvil por **Wi-Fi** (o cuando el móvil está en un AP distinto). Desactívalo, o conecta el móvil a la red del router principal.
+
+4. **VPN en el móvil.** Una VPN activa (o un bloqueador de anuncios con VPN local: AdGuard, Blokada, DNS66…) corta el acceso a `192.168…`. Desactívala y prueba. Mira también «DNS privado» (Ajustes → Red) y el «DNS seguro» de Chrome: los dos **se saltan** tu DNS local.
+
+5. **Otra red: banda, AP o repetidor.** Comprueba la **IP y la puerta de enlace** del móvil: deben empezar por lo mismo que las del PC. Si el móvil cuelga de un repetidor o de otra banda, puede estar aislado o en otra subred.
+
+6. **El puerto del add-on.** En el log del add-on verás `▸ https://localhost:9001`. En **Configuración → Red** revisa el mapeo del puerto del host.
+
+7. **Firewall o control parental del router** bloqueando dispositivos inalámbricos o puertos poco comunes.
 
 ### `https://TU-DOMINIO.duckdns.org:9001` no funciona
 
-Tu dominio DuckDNS funciona sin puerto porque el router reenvía el `443` a Home Assistant (8123). Echo es otra aplicación, en otro puerto:
+Ese `:9001` no es el mismo camino que tu Home Assistant en `https://TU-DOMINIO.duckdns.org` (ese va por el `443` → HA). Tienes dos formas:
 
-- El add-on, por defecto, sirve **HTTP** en `9001`. Para que responda a `https://`, activa la opción `ssl` del add-on (ver [Servir Echo por HTTPS](#servir-echo-por-https-opcional)).
-- Además, el router debe reenviar el puerto externo `9001` hacia `IP_DE_TU_HA:9001`. Sin ese reenvío, `https://…:9001` no llega a ninguna parte.
-- Con el certificado de DuckDNS la URL remota correcta será `https://TU-DOMINIO.duckdns.org:9001`, no `https://IP:9001` (el certificado no cubre la IP).
+- **Desde fuera de casa (o con reenvío):** reenvía en el router el puerto externo `9001` hacia `IP_DE_TU_HA:9001`. Así funciona con el certificado de DuckDNS y desde cualquier sitio, pero **deja Echo publicado en Internet**.
+- **Solo en casa, sin exponer nada:** haz que el dominio resuelva a la IP local **en el propio dispositivo**. Con un DNS local (por ejemplo el add-on **AdGuard Home** con una reescritura `TU-DOMINIO.duckdns.org → IP_DE_TU_HA`) el navegador va directo a la caja, el certificado de DuckDNS es válido y **no hace falta reenviar ningún puerto**.
+  > Requisito imprescindible: que el dispositivo use **de verdad** ese DNS. Los puntos 1 y 2 de arriba (permiso de Android y RA/IPv6) son justo los que rompen esto sin que te enteres.
 
-También puedes reutilizar el `443` de Home Assistant con Nabu Casa o un proxy inverso, pero no es necesario: activar `ssl` en el add-on es el camino más corto.
+Con un certificado válido y contexto seguro, el navegador ofrece **Instalar aplicación** y el service worker queda registrado (modo sin conexión). Con un certificado no válido (por ejemplo entrando por IP con aviso), Chrome **no** instala la PWA.
+
+### El service worker sirve una versión antigua
+
+- La app se sirve con `no-cache` + etag: en la primera recarga tras actualizar debería entrar la versión nueva.
+- Si sigues viendo algo viejo, fuerza la recarga (o cierra la app del todo y ábrela). El service worker también cachea: en Chrome, `chrome://net-internals/#dns` (limpiar caché de DNS) y `#sockets` (flush) ayudan cuando hay cachés raras.
 
 ---
 
