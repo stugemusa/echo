@@ -30,7 +30,10 @@ app.use((req, res, next) => {
       "script-src 'self'",
       "connect-src 'self'",
       "manifest-src 'self'",
-      "font-src 'self'",
+      // `data:` permite fuentes incrustadas en Base64 (p. ej. si una hoja de
+      // estilos genera @font-face con una Data URI). Las tipografías de Echo
+      // se sirven como .woff2 locales, pero esto evita bloqueos en móviles.
+      "font-src 'self' data:",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
