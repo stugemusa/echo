@@ -81,7 +81,7 @@ HTTPS.
 - **Planificar a mano**: en la vista diaria, **Planificar repaso** reserva un repaso en cualquier día futuro sin registrar un estudio.
 - **Cambiar la fecha**: recalcula toda la cadena posterior del tema. La nueva fecha puede ser pasada o futura, siempre posterior al último estudio. En el diálogo, la tira de carga semanal es pulsable: al tocar un día se fija esa fecha.
 - **Eliminar**: la papelera de cada repaso pendiente (o **Eliminar** al cambiar la fecha) borra ese repaso con confirmación.
-- **Deshacer un estudio**: desde el Historial, el botón de deshacer devuelve el repaso a pendiente y recalcula la cadena.
+- **Deshacer un estudio**: desde el Historial, el botón de deshacer devuelve el repaso a pendiente y recalcula la cadena. Si es el **primer** estudio del tema, no queda día 1 desde el que contar: se borra el tema entero con todo lo planificado.
 - **Ficha de un tema**: el botón de calendario junto a cada tema del Historial abre todos sus repasos, pasados y futuros, en lista o en calendario mensual.
 - Los días futuros no permiten registrar estudio.
 

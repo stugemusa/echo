@@ -1675,10 +1675,15 @@
       id,
       code: button.dataset.undoCode || 'el tema',
       date: button.dataset.undoDate || '',
+      first: button.dataset.undoFirst === '1',
     };
     $('#undoIntro').textContent = state.undoing.date
       ? `Se deshará el estudio de ${state.undoing.code} registrado el ${formatMediumDate(state.undoing.date)}.`
       : `Se deshará el estudio de ${state.undoing.code}.`;
+    $('#undoHint').textContent = state.undoing.first
+      ? `Es el primer estudio de ${state.undoing.code}: sin él no hay día 1 desde el que contar, así que se borra el tema entero con todos sus repasos planificados.`
+      : 'El repaso vuelve a quedar pendiente y los repasos siguientes de ese tema se recalculan desde él. Si lo mueves después, la cadena se recalcula otra vez.';
+    $('#undoConfirm span').textContent = state.undoing.first ? 'Borrar tema' : 'Deshacer';
     $('#undoError').textContent = '';
     showDialog($('#undoDialog'));
   }
@@ -1695,7 +1700,9 @@
       closeDialog($('#undoDialog'));
       state.undoing = null;
       toast(
-        result.restoredDate
+        result.topicDeleted
+          ? `Tema ${target.code} borrado junto con sus repasos planificados.`
+          : result.restoredDate
           ? `Estudio deshecho. ${target.code} vuelve a estar pendiente el ${formatMediumDate(result.restoredDate)}.`
           : `Estudio de ${target.code} deshecho.`
       );
@@ -1835,7 +1842,7 @@
             </div>
             ${review.comments ? `<p class="timeline-note">${esc(review.comments)}</p>` : ''}
           </div>
-          <button type="button" class="icon-btn is-danger timeline-undo" data-undo-review="${review.id}" data-undo-code="${esc(topic.code)}" data-undo-date="${esc(review.completedOn || review.dueDate)}" title="Deshacer este estudio" aria-label="Deshacer el estudio del ${esc(formatMediumDate(review.completedOn))}">
+          <button type="button" class="icon-btn is-danger timeline-undo" data-undo-review="${review.id}" data-undo-code="${esc(topic.code)}" data-undo-date="${esc(review.completedOn || review.dueDate)}" data-undo-first="${index === 0 ? '1' : ''}" title="Deshacer este estudio" aria-label="Deshacer el estudio del ${esc(formatMediumDate(review.completedOn))}">
             <svg class="icon"><use href="#i-undo"></use></svg>
           </button>
         </li>

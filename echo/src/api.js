@@ -727,6 +727,31 @@ router.post('/reviews/:id/undo', (req, res) => {
       .json({ error: 'later_study', message: 'Hay un estudio posterior de este tema. Deshaz primero el más reciente.' });
   }
 
+  // Sin un estudio anterior, este es el día 1 del tema: sin él no hay pivote
+  // desde el que contar la cadena, así que el tema desaparece por completo.
+  const earlierStudy = db
+    .prepare(
+      `SELECT COUNT(*) AS count FROM reviews
+       WHERE topic_id = ? AND status = 'done' AND id <> ?
+         AND COALESCE(completed_on, due_date) <= ?`
+    )
+    .get(review.topic_id, review.id, review.completed_on || review.due_date).count;
+  if (earlierStudy === 0) {
+    const removed = db
+      .prepare('SELECT COUNT(*) AS count FROM reviews WHERE topic_id = ? AND id <> ?')
+      .get(review.topic_id, review.id).count;
+    db.prepare('DELETE FROM topics WHERE id = ?').run(review.topic_id);
+    return res.json({
+      ok: true,
+      topic: { id: review.topic_id, code: review.topic_code },
+      topicDeleted: true,
+      removedReviews: removed,
+      restoredDate: null,
+      plannedReviews: 0,
+      collisions: [],
+    });
+  }
+
   const preview = planReschedule({
     db,
     review,

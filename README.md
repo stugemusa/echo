@@ -47,7 +47,7 @@ Si algún día necesitas entrar desde fuera, la vía recomendada es una **VPN** 
 - **Recálculo de cadencia**: al mover un repaso, todos los posteriores de ese tema se recalculan manteniendo los intervalos. La nueva fecha puede ser pasada o futura, siempre posterior al estudio anterior.
 - **Historial por tema** con número de repasos, fechas, intervalos y comentarios; buscador y ordenación.
 - **Ficha de cada tema** con todos sus repasos, pasados y futuros, en lista cronológica o en calendario mensual.
-- **Deshacer un estudio** registrado por error: el repaso vuelve a estar pendiente y la cadena se recalcula sola.
+- **Deshacer un estudio** registrado por error: el repaso vuelve a estar pendiente y la cadena se recalcula sola. Si es el primer estudio del tema, el tema desaparece con todo lo planificado.
 - **Eliminar repasos**: si un repaso se creó por error, puedes borrarlo desde la vista diaria con confirmación.
 - **Vista móvil específica**: calendario con números grandes y puntos de carga (sin texto microscópico), semana en lista vertical y agenda táctil.
 - **Cierre de sesión** disponible en la barra superior para cualquier perfil.
