@@ -79,9 +79,10 @@ HTTPS.
 
 - **Registrar un estudio**: el campo **Fecha del estudio** viene con hoy por defecto y admite cualquier día del último año, para apuntar algo que olvidaste. Nunca admite fechas futuras ni anteriores a un estudio ya registrado del mismo tema; la cadena se recalcula desde la fecha indicada.
 - **Planificar a mano**: en la vista diaria, **Planificar repaso** reserva un repaso en cualquier día futuro sin registrar un estudio.
-- **Cambiar la fecha**: recalcula toda la cadena posterior del tema. En el diálogo, la tira de carga semanal es pulsable: al tocar un día se fija esa fecha.
+- **Cambiar la fecha**: recalcula toda la cadena posterior del tema. La nueva fecha puede ser pasada o futura, siempre posterior al último estudio. En el diálogo, la tira de carga semanal es pulsable: al tocar un día se fija esa fecha.
 - **Eliminar**: la papelera de cada repaso pendiente (o **Eliminar** al cambiar la fecha) borra ese repaso con confirmación.
 - **Deshacer un estudio**: desde el Historial, el botón de deshacer devuelve el repaso a pendiente y recalcula la cadena.
+- **Ficha de un tema**: el botón de calendario junto a cada tema del Historial abre todos sus repasos, pasados y futuros, en lista o en calendario mensual.
 - Los días futuros no permiten registrar estudio.
 
 ## Móvil

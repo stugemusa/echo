@@ -44,6 +44,7 @@
     },
     move: { review: null },
     plan: { date: '' },
+    topicView: null,
     deleting: null,
     undoing: null,
     restore: null,
@@ -1260,7 +1261,7 @@
 
   /** Elige desde la vista rápida la nueva fecha de un repaso. */
   function pickMoveDate(date) {
-    if (!date || date < todayISO()) return;
+    if (!date) return;
     const input = $('#moveDate');
     if (!input) return;
     input.value = date;
@@ -1412,7 +1413,7 @@
     $('#moveTopicMeta').textContent = `Programado para ${formatMediumDate(review.dueDate)} · repaso de ${review.intervalDays} días`;
     const input = $('#moveDate');
     input.value = review.dueDate;
-    input.min = todayISO();
+    input.min = '';
     input.max = state.overview?.examDate || '';
     $('#moveError').textContent = '';
     showDialog($('#moveDialog'));
@@ -1434,7 +1435,7 @@
     try {
       const data = await api(`/api/calendar?from=${from}&to=${to}`);
       if (sequence !== state.movePreviewSeq) return;
-      renderLoadStrip($('#moveDays'), data, value, todayISO());
+      renderLoadStrip($('#moveDays'), data, value, '');
       const targetDay = data.days.find((day) => day.date === value);
       const count = targetDay
         ? targetDay.reviews.filter((reviewItem) => reviewItem.status === 'pending' && reviewItem.id !== review.id).length
@@ -1852,6 +1853,9 @@
               ${topic.nextDue ? `<span class="badge is-green">Próximo ${esc(formatShortDate(topic.nextDue))}</span>` : '<span class="badge">Sin repasos futuros</span>'}
               <span class="badge">${topic.totalStudies}×</span>
             </span>
+            <button type="button" class="icon-btn topic-open" data-open-topic="${topic.id}" title="Ver todos los repasos" aria-label="Ver todos los repasos de ${esc(topic.code)}">
+              <svg class="icon"><use href="#i-calendar"></use></svg>
+            </button>
             <svg class="icon topic-chevron"><use href="#i-chevron-down"></use></svg>
           </summary>
           <div class="topic-body">
@@ -1864,10 +1868,192 @@
                 </div>
               </div>
             ` : ''}
+            <button type="button" class="btn btn-soft btn-sm topic-ficha" data-open-topic="${topic.id}">
+              <svg class="icon icon-sm"><use href="#i-calendar"></use></svg>
+              <span>Ver ficha completa</span>
+            </button>
           </div>
         </details>
       `;
     }).join('');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Ficha de tema                                                      */
+  /* ------------------------------------------------------------------ */
+
+  function topicReviewEntries(topic) {
+    const entries = [];
+    for (const review of topic.done) {
+      entries.push({
+        id: review.id,
+        date: review.completedOn || review.dueDate,
+        plannedDate: review.dueDate,
+        intervalDays: review.intervalDays,
+        comments: review.comments,
+        status: 'done',
+        origin: review.origin,
+      });
+    }
+    for (const review of topic.pending) {
+      entries.push({
+        id: review.id,
+        date: review.dueDate,
+        plannedDate: review.dueDate,
+        intervalDays: review.intervalDays,
+        comments: null,
+        status: 'pending',
+        origin: 'auto',
+      });
+    }
+    entries.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id));
+    return entries;
+  }
+
+  function firstTopicMonth(topic) {
+    const entries = topicReviewEntries(topic);
+    return startOfMonth(entries.length ? entries[0].date : todayISO());
+  }
+
+  function openTopic(topicId) {
+    const topic = state.history?.topics?.find((item) => item.id === Number(topicId));
+    if (!topic) return;
+    state.topicView = { topic, mode: 'list', cursor: firstTopicMonth(topic) };
+    renderTopicDialog();
+    showDialog($('#topicDialog'));
+  }
+
+  function renderTopicDialog() {
+    const view = state.topicView;
+    if (!view) return;
+    const { topic } = view;
+    $('#topicDialogTitle').textContent = topic.code;
+    const done = topic.done.length;
+    const pending = topic.pending.length;
+    $('#topicDialogMeta').textContent = `${done} ${plural(done, 'repaso completado', 'repasos completados')} · ${pending} ${plural(pending, 'repaso programado', 'repasos programados')}${topic.lastStudy ? ` · último el ${formatMediumDate(topic.lastStudy)}` : ''}`;
+    $$('[data-topic-mode]').forEach((button) => {
+      const active = button.dataset.topicMode === view.mode;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    const content = $('#topicDialogContent');
+    content.innerHTML = view.mode === 'calendar' ? renderTopicCalendar(topic) : renderTopicList(topic);
+  }
+
+  function topicStatus(entry, today) {
+    if (entry.status === 'done') return { tone: 'is-done', label: 'Completado', badge: 'is-green' };
+    if (entry.date < today) return { tone: 'is-overdue', label: 'Atrasado', badge: 'is-amber' };
+    return { tone: 'is-future', label: 'Programado', badge: 'is-future' };
+  }
+
+  function renderTopicList(topic) {
+    const entries = topicReviewEntries(topic);
+    if (!entries.length) {
+      return '<div class="empty-state topic-empty"><p>Este tema todavía no tiene repasos.</p></div>';
+    }
+    const today = state.history?.today || todayISO();
+    const rows = entries.map((entry) => {
+      const status = topicStatus(entry, today);
+      const planned = entry.status === 'done' && entry.plannedDate !== entry.date
+        ? `<p class="hint">Programado para el ${esc(formatMediumDate(entry.plannedDate))}</p>`
+        : '';
+      return `
+        <li class="timeline-item ${status.tone}">
+          <span class="timeline-dot"></span>
+          <div class="timeline-main">
+            <div class="timeline-head">
+              <strong>${esc(formatMediumDate(entry.date))}</strong>
+              <span class="badge ${status.badge}">${status.label}</span>
+              <span>${entry.intervalDays > 0 ? `Repaso de ${entry.intervalDays} días` : 'Primer estudio'}</span>
+            </div>
+            ${planned}
+            ${entry.comments ? `<p class="timeline-note">${esc(entry.comments)}</p>` : ''}
+          </div>
+        </li>
+      `;
+    }).join('');
+    return `<ul class="timeline topic-timeline">${rows}</ul>`;
+  }
+
+  function renderTopicCalendar(topic) {
+    const view = state.topicView;
+    const entries = topicReviewEntries(topic);
+    const byDate = new Map();
+    for (const entry of entries) {
+      if (!byDate.has(entry.date)) byDate.set(entry.date, []);
+      byDate.get(entry.date).push(entry);
+    }
+    const cursor = startOfMonth(view.cursor);
+    const monthKey = cursor.slice(0, 7);
+    const start = startOfWeek(cursor);
+    const today = state.history?.today || todayISO();
+    const headers = WEEKDAYS_SHORT.map((day) => `<span class="topic-cal-wd">${esc(day)}</span>`).join('');
+    const cells = [];
+    for (let index = 0; index < 42; index += 1) {
+      const date = addDays(start, index);
+      const items = byDate.get(date) || [];
+      const hasDone = items.some((item) => item.status === 'done');
+      const hasPending = items.some((item) => item.status === 'pending');
+      const hasOverdue = items.some((item) => item.status === 'pending' && item.date < today);
+      const classes = [
+        'topic-cal-day',
+        date.slice(0, 7) !== monthKey ? 'is-out' : '',
+        date === today ? 'is-today' : '',
+        hasDone ? 'has-done' : '',
+        hasPending ? 'has-pending' : '',
+        hasOverdue ? 'has-overdue' : '',
+      ].filter(Boolean).join(' ');
+      const title = items.length
+        ? `${formatMediumDate(date)}: ${items.map((item) => {
+            if (item.status === 'done') return 'completado';
+            return item.date < today ? 'atrasado' : 'programado';
+          }).join(', ')}`
+        : formatMediumDate(date);
+      cells.push(`
+        <span class="${classes}" title="${esc(title)}">
+          <span class="topic-cal-num">${Number(date.slice(8, 10))}</span>
+          ${items.length ? `<span class="topic-cal-dots">${items.slice(0, 3).map((item) => `<i class="${item.status === 'done' ? 'is-done' : item.date < today ? 'is-overdue' : 'is-pending'}"></i>`).join('')}</span>` : ''}
+        </span>
+      `);
+    }
+    const monthEntries = entries.filter((entry) => entry.date.slice(0, 7) === monthKey);
+    const monthList = monthEntries.length
+      ? `<ul class="timeline topic-timeline topic-cal-list">${monthEntries.map((entry) => {
+          const status = topicStatus(entry, today);
+          return `
+            <li class="timeline-item ${status.tone}">
+              <span class="timeline-dot"></span>
+              <div class="timeline-main">
+                <div class="timeline-head">
+                  <strong>${esc(formatMediumDate(entry.date))}</strong>
+                  <span class="badge ${status.badge}">${status.label}</span>
+                  <span>${entry.intervalDays > 0 ? `Repaso de ${entry.intervalDays} días` : 'Primer estudio'}</span>
+                </div>
+              </div>
+            </li>
+          `;
+        }).join('')}</ul>`
+      : '<p class="hint">Sin repasos en este mes.</p>';
+    return `
+      <div class="topic-cal">
+        <div class="topic-cal-head">
+          <button type="button" class="icon-btn bordered" data-topic-nav="-1" aria-label="Mes anterior">
+            <svg class="icon"><use href="#i-chevron-left"></use></svg>
+          </button>
+          <strong>${esc(formatMonthYear(cursor))}</strong>
+          <button type="button" class="icon-btn bordered" data-topic-nav="1" aria-label="Mes siguiente">
+            <svg class="icon"><use href="#i-chevron-right"></use></svg>
+          </button>
+        </div>
+        <div class="topic-cal-grid">${headers}${cells.join('')}</div>
+        <div class="topic-cal-legend">
+          <span><i class="legend-dot is-done"></i> Completado</span>
+          <span><i class="legend-dot is-pending"></i> Programado</span>
+          <span><i class="legend-dot is-overdue"></i> Atrasado</span>
+        </div>
+        ${monthList}
+      </div>
+    `;
   }
 
   /* ------------------------------------------------------------------ */
@@ -2649,6 +2835,38 @@ automation:
       if (closer) {
         const dialog = document.getElementById(closer.dataset.close);
         if (dialog) closeDialog(dialog);
+        return;
+      }
+
+      const openTopicButton = event.target.closest('[data-open-topic]');
+      if (openTopicButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        openTopic(openTopicButton.dataset.openTopic);
+        return;
+      }
+
+
+      const topicMode = event.target.closest('[data-topic-mode]');
+      if (topicMode) {
+        event.preventDefault();
+        if (state.topicView) {
+          state.topicView.mode = topicMode.dataset.topicMode === 'calendar' ? 'calendar' : 'list';
+          renderTopicDialog();
+        }
+        return;
+      }
+
+      const topicNav = event.target.closest('[data-topic-nav]');
+      if (topicNav) {
+        event.preventDefault();
+        if (state.topicView) {
+          const direction = Number(topicNav.dataset.topicNav) || 0;
+          const date = parseISO(state.topicView.cursor);
+          date.setUTCMonth(date.getUTCMonth() + direction);
+          state.topicView.cursor = toISO(date);
+          renderTopicDialog();
+        }
         return;
       }
 

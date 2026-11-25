@@ -178,24 +178,28 @@ function planCascade({ db, topicId, startDate, firstGap, examDate, maxPerDay = 3
  *
  * `allowPast` + `exactDate` se usan al deshacer un estudio: el repaso vuelve
  * a su fecha original aunque ya haya pasado y sin buscar hueco alternativo.
+ *
+ * Al mover un repaso hacia atrás, `anchor` es la fecha nueva: la cadena se
+ * recalcula desde ahí y no desde la fecha antigua.
  */
 function planReschedule({ db, review, targetDate, examDate, maxPerDay = 3, allowPast = false, exactDate = false }) {
   const topic = db.prepare('SELECT * FROM topics WHERE id = ?').get(review.topic_id);
   if (!topic) return { error: 'Tema no encontrado.', notFound: true };
 
+  const anchor = targetDate < review.due_date ? targetDate : review.due_date;
   const previous = db
     .prepare(
       `SELECT due_date, completed_on FROM reviews
-       WHERE topic_id = ? AND due_date < ?
+       WHERE topic_id = ? AND due_date < ? AND id != ?
        ORDER BY due_date DESC, id DESC LIMIT 1`
     )
-    .get(review.topic_id, review.due_date);
+    .get(review.topic_id, anchor, review.id);
 
   const basePrev = previous
     ? previous.completed_on && previous.completed_on > previous.due_date
       ? previous.completed_on
       : previous.due_date
-    : (topic.created_at || review.due_date).slice(0, 10);
+    : (topic.created_at || anchor).slice(0, 10);
 
   const minDate = allowPast
     ? addDays(basePrev, 1)
@@ -260,7 +264,7 @@ function planReschedule({ db, review, targetDate, examDate, maxPerDay = 3, allow
        WHERE topic_id = ? AND status = 'pending' AND due_date >= ? AND id != ?
        ORDER BY due_date ASC, id ASC`
     )
-    .all(review.topic_id, review.due_date, review.id);
+    .all(review.topic_id, anchor, review.id);
 
   let prev = firstSlot.date;
   for (const next of subsequent) {

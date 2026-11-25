@@ -410,7 +410,7 @@
       <div class="field">
         <label for="moveDate">Nueva fecha</label>
         <input class="input input-date" id="moveDate" type="date" required>
-        <p class="hint">Los repasos posteriores se recalculan manteniendo la cadencia hasta el examen.</p>
+        <p class="hint">Puedes moverlo a un día pasado o futuro, siempre posterior al último estudio. Los repasos posteriores se recalculan manteniendo la cadencia hasta el examen.</p>
       </div>
       <div class="load-preview" id="movePreview">
         <div class="load-preview-head">
@@ -431,6 +431,32 @@
       <button type="submit" class="btn btn-primary" id="moveSubmit">Guardar nueva fecha</button>
     </div>
   </form>
+</dialog>
+
+<!-- ====================== MODAL: FICHA DE TEMA ================= -->
+<dialog class="modal" id="topicDialog" aria-labelledby="topicDialogTitle">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">Ficha del tema</p>
+        <h2 id="topicDialogTitle">Tema</h2>
+        <p class="hint" id="topicDialogMeta"></p>
+      </div>
+      <button type="button" class="icon-btn" data-close="topicDialog" aria-label="Cerrar">
+        <svg class="icon"><use href="#i-x"></use></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="seg" role="tablist" aria-label="Vista del tema">
+        <button type="button" class="seg-item is-active" data-topic-mode="list" role="tab">Lista</button>
+        <button type="button" class="seg-item" data-topic-mode="calendar" role="tab">Calendario</button>
+      </div>
+      <div id="topicDialogContent"></div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-ghost" data-close="topicDialog">Cerrar</button>
+    </div>
+  </div>
 </dialog>
 
 <!-- ====================== MODAL: PLANIFICAR ==================== -->

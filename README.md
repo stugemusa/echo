@@ -44,8 +44,9 @@ Si algún día necesitas entrar desde fuera, la vía recomendada es una **VPN** 
   - repasos de 14, 21 y 30+ días buscan hueco hacia atrás;
   - si no hay hueco en la dirección preferente, se busca en ambas direcciones.
 - **Confirmación de ajustes**: cualquier movimiento por exceso de carga se muestra en un modal antes de guardarse.
-- **Recálculo de cadencia**: al mover un repaso, todos los posteriores de ese tema se recalculan manteniendo los intervalos.
+- **Recálculo de cadencia**: al mover un repaso, todos los posteriores de ese tema se recalculan manteniendo los intervalos. La nueva fecha puede ser pasada o futura, siempre posterior al estudio anterior.
 - **Historial por tema** con número de repasos, fechas, intervalos y comentarios; buscador y ordenación.
+- **Ficha de cada tema** con todos sus repasos, pasados y futuros, en lista cronológica o en calendario mensual.
 - **Deshacer un estudio** registrado por error: el repaso vuelve a estar pendiente y la cadena se recalcula sola.
 - **Eliminar repasos**: si un repaso se creó por error, puedes borrarlo desde la vista diaria con confirmación.
 - **Vista móvil específica**: calendario con números grandes y puntos de carga (sin texto microscópico), semana en lista vertical y agenda táctil.
@@ -297,13 +298,15 @@ Los repasos de un mismo tema nunca se apilan en el mismo día y no se programa n
 
 ### 5. Mover o replanificar un repaso
 
-Desde la vista diaria puedes pulsar el icono de mover en cualquier repaso pendiente, sea de hoy o de un día futuro. Al cambiar la fecha:
+Desde la vista diaria puedes pulsar el icono de mover en cualquier repaso pendiente, sea de hoy, de un día futuro o de un día pasado. Al cambiar la fecha:
 
 - el repaso elegido se coloca en la nueva fecha (con búsqueda de hueco si está llena);
 - **todos los repasos posteriores de ese tema se recalculan** manteniendo los intervalos guardados;
 - si hay desplazamientos por carga, se muestran igualmente en el modal de confirmación.
 
-Dentro del diálogo, la tira **Carga de la semana** también sirve para elegir: **pulsa cualquiera de esos días** y se fija como fecha, sin abrir el selector nativo. Los días que no son válidos (anteriores a hoy, o no posteriores al estudio) aparecen atenuados y no responden al toque.
+La fecha nueva debe ser **posterior al último estudio del tema**. Si intentas moverla antes, Echo lo rechaza para no desordenar el historial. No hay límite por el lado futuro: puedes seguir moviendo repasos hacia delante como siempre.
+
+Dentro del diálogo, la tira **Carga de la semana** también sirve para elegir: **pulsa cualquiera de esos días** y se fija como fecha, sin abrir el selector nativo. Si el día elegido no es posterior al último estudio, el guardado se rechaza con un aviso.
 
 ### 6. Planificar un repaso a mano
 
@@ -329,7 +332,16 @@ Desde la vista diaria, cada repaso pendiente tiene un botón de papelera (tambi�
 
 Los repasos siguientes de un tema se derivan siempre del último punto «fijo»: el último estudio registrado o el último repaso que moviste a mano. Por eso, si mueves un repaso a otro día, **todo lo que venía detrás se desplaza** para mantener la cadencia.
 
-### 10. Señales: solo la siguiente
+### 10. Ver todos los repasos de un tema
+
+En el **Historial**, cada tema tiene un botón de calendario junto a su nombre. Abre la **ficha del tema**, con todos sus repasos ordenados cronológicamente:
+
+- **Lista**: repasos completados y pendientes mezclados por fecha, con su estado (completado, programado o atrasado), el intervalo y los comentarios.
+- **Calendario**: vista mensual con los días marcados. Puedes navegar mes a mes para ver el pasado y el futuro del tema.
+
+La ficha es solo de consulta: para registrar, mover o deshacer, usa la vista diaria o el propio Historial.
+
+### 11. Señales: solo la siguiente
 
 Las señales **no se planifican con antelación** como los repasos. A partir de la última señal:
 
@@ -445,7 +457,7 @@ Todas las rutas, salvo `/api/auth`, `/api/session`, `/api/health` y `/api/signal
 | `POST` | `/api/studies` | usuario | Registra un estudio de hoy o del pasado (`study_date`, nunca futuro) y genera la cascada. |
 | `POST` | `/api/reviews/:id/undo` | usuario | Deshace un estudio: el repaso vuelve a pendiente y se recalcula la cadena. |
 | `POST` | `/api/plan` | usuario | Planifica un repaso manual en una fecha (hoy o futura). |
-| `PATCH` | `/api/reviews/:id` | usuario | Cambia la fecha de un repaso y recalcula los posteriores. |
+| `PATCH` | `/api/reviews/:id` | usuario | Cambia la fecha de un repaso (pasada o futura, siempre posterior al último estudio) y recalcula los posteriores. |
 | `DELETE` | `/api/reviews/:id` | usuario | Elimina un repaso pendiente. |
 | `GET` | `/api/history?q=&sort=date\|topic` | usuario | Historial agrupado por tema. |
 | `GET` | `/api/settings` | usuario | Ajustes básicos; el administrador recibe además API, intervalos y señal. |

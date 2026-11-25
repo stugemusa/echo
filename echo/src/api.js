@@ -636,8 +636,18 @@ router.patch('/reviews/:id', (req, res) => {
   if (!isValidISO(target)) {
     return res.status(400).json({ error: 'invalid_date', message: 'Fecha de repaso no válida.' });
   }
-  if (target < todayISO()) {
-    return res.status(400).json({ error: 'past_date', message: 'No puedes mover un repaso al pasado.' });
+
+  const laterStudy = db
+    .prepare(
+      `SELECT COUNT(*) AS count FROM reviews
+       WHERE topic_id = ? AND status = 'done' AND COALESCE(completed_on, due_date) >= ?`
+    )
+    .get(review.topic_id, target).count;
+  if (laterStudy > 0) {
+    return res.status(400).json({
+      error: 'before_study',
+      message: 'Ese tema ya tiene un estudio en esa fecha o después. Elige una fecha posterior al último estudio.',
+    });
   }
 
   const planResult = planReschedule({
@@ -646,6 +656,7 @@ router.patch('/reviews/:id', (req, res) => {
     targetDate: target,
     examDate: getExamDate(),
     maxPerDay: getMaxPerDay(),
+    allowPast: true,
   });
 
   if (planResult.error) {
@@ -664,10 +675,11 @@ router.patch('/reviews/:id', (req, res) => {
   }
 
   const timestamp = new Date().toISOString();
+  const anchor = target < review.due_date ? target : review.due_date;
   db.transaction(() => {
     db.prepare(
       "DELETE FROM reviews WHERE topic_id = ? AND status = 'pending' AND due_date >= ?"
-    ).run(review.topic_id, review.due_date);
+    ).run(review.topic_id, anchor);
     applyPlan(db, review.topic_id, planResult.plan);
     db.prepare('UPDATE topics SET updated_at = ? WHERE id = ?').run(timestamp, review.topic_id);
   })();
