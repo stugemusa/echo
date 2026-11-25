@@ -309,10 +309,10 @@ router.post('/studies', (req, res) => {
     if (!review) {
       return res.status(404).json({ error: 'not_found', message: 'El repaso pendiente ya no existe.' });
     }
-    if (review.due_date > todayISO()) {
+    if (review.due_date > studyDate) {
       return res.status(400).json({
         error: 'future_review',
-        message: 'Ese repaso todavía no toca. Puedes cambiar su fecha, pero no registrar el estudio antes de tiempo.',
+        message: 'Ese repaso todavía no tocaba en la fecha indicada. Puedes cambiar su fecha, pero no registrar el estudio antes de tiempo.',
       });
     }
     topic = topicById.get(review.topic_id);
@@ -389,6 +389,25 @@ router.post('/studies', (req, res) => {
           .prepare('INSERT INTO topics (code, created_at, updated_at) VALUES (?, ?, ?)')
           .run(code, timestamp, timestamp);
         topicRow = topicById.get(info.lastInsertRowid);
+      }
+
+      // Al registrar en el pasado no se puede dejar el historial desordenado:
+      // si ya hay un estudio posterior de ese tema, la fecha no es válida.
+      if (studyDate < todayISO()) {
+        const later = db
+          .prepare(
+            `SELECT COALESCE(completed_on, due_date) AS done_on
+             FROM reviews
+             WHERE topic_id = ? AND status = 'done' AND COALESCE(completed_on, due_date) > ?
+             ORDER BY done_on DESC LIMIT 1`
+          )
+          .get(topicRow.id, studyDate);
+        if (later) {
+          throw httpError(
+            400,
+            `Ese tema ya tiene un estudio del ${later.done_on}, posterior a la fecha indicada. Elige una fecha más reciente o deshaz ese estudio primero.`
+          );
+        }
       }
 
       let completedId = null;
@@ -869,8 +888,19 @@ router.put('/settings', (req, res) => {
 });
 
 router.post('/signals', auth.requireAdmin, (req, res) => {
+  let date = todayISO();
+  if (req.body?.date) {
+    if (!isValidISO(req.body.date)) {
+      return res.status(400).json({ error: 'invalid_date', message: 'Fecha no válida.' });
+    }
+    if (req.body.date > todayISO()) {
+      return res.status(400).json({ error: 'future_date', message: 'No se pueden registrar señales futuras.' });
+    }
+    date = req.body.date;
+  }
+
   const result = addSignal(db, {
-    date: todayISO(),
+    date,
     source: 'manual',
     note: req.body?.note ? String(req.body.note) : null,
   });

@@ -36,7 +36,7 @@ Si algún día necesitas entrar desde fuera, la vía recomendada es una **VPN** 
 ## Características
 
 - **Calendario navegable** con vistas mensual, semanal y diaria.
-- **Registro de estudio** con temas pendientes de hoy, temas atrasados de días anteriores o un identificador libre.
+- **Registro de estudio** con temas pendientes de hoy, temas atrasados de días anteriores o un identificador libre, con la **fecha del estudio** ajustable a cualquier día del último año (nunca futuro).
 - **Cadencia automática** de repaso: `3 → 7 → 14 → 21 → 30 → cada 30 días`.
 - **Proyección en cascada** de todos los repasos futuros hasta la fecha del examen.
 - **Gestión de colisiones** con máximo de **3 temas por día**:
@@ -56,6 +56,7 @@ Si algún día necesitas entrar desde fuera, la vía recomendada es una **VPN** 
   - 😭 a los 14 días;
   - 💔 a los 21 días y un corazón roto adicional cada 5 días;
   - solo se muestra la **siguiente** marca, y únicamente **dos días antes** de su fecha;
+  - la señal se puede marcar con la fecha de hoy (por defecto) o con un día pasado;
   - sin leyenda ni pistas: no se anuncia qué icono saldrá ni cuándo.
 - **Dos perfiles con PIN**: usuario normal (calendario, estudio y fecha del examen) y administración (ajustes, señales y API).
 - **Planificación manual**: reserva un repaso en cualquier día futuro sin registrar un estudio.
@@ -267,7 +268,7 @@ Al pulsar **Registrar estudio** Echo te ofrece:
 2. los repasos de **días anteriores sin completar** (atrasados);
 3. o un **identificador libre** para un tema nuevo.
 
-Al guardar, el tema queda registrado como repaso completado con la fecha real de hoy y los comentarios opcionales.
+El campo **Fecha del estudio** viene con **hoy** por defecto, pero puedes cambiarlo a **cualquier día del último año** para registrar algo que olvidaste apuntar. Nunca se admite una fecha futura: no se puede registrar un estudio que todavía no ha ocurrido. Tampoco se admite una fecha anterior a un estudio ya registrado de ese mismo tema (el historial no se desordena). Al guardar, el tema queda registrado como repaso completado con esa fecha y los comentarios opcionales, y la cadena se recalcula desde ella (si el repaso siguiente cae en el pasado, aparecerá como atrasado).
 
 ### 2. Intervalos
 
@@ -339,6 +340,8 @@ Las señales **no se planifican con antelación** como los repasos. A partir de 
 Ejemplo: si hoy hay señal y la siguiente marca toca a los 7 días, el icono 😢 aparecerá el día 5 **en la casilla del día 7** y se quedará a partir de ahí. Hasta entonces, el calendario solo muestra el corazón de hoy.
 
 El diseño es deliberadamente discreto: no hay leyenda de emojis, ni se anuncia cuándo aparecerá la próxima marca o con qué icono, para que la sorpresa forme parte del recordatorio. El aviso del calendario y la nota al pie solo indican **cuánto tiempo ha pasado** desde la última señal, con mensajes variados que se vuelven menos sutiles conforme pasa el tiempo (y solo la administración puede dejar la señal desde ahí).
+
+Al marcar una señal desde **Dejar señal** / **Marcar señal** se abre un diálogo con la fecha: viene con **hoy** por defecto, pero puedes indicar un día pasado para apuntar una señal que olvidaste registrar. Nunca se admite una fecha futura. El ciclo se reinicia desde esa fecha; si ya existía una señal posterior, la nueva se añade al calendario pero no reinicia el ciclo.
 
 ---
 
@@ -439,7 +442,7 @@ Todas las rutas, salvo `/api/auth`, `/api/session`, `/api/health` y `/api/signal
 | `GET` | `/api/session` | — | Estado de autenticación y perfil activo. |
 | `GET` | `/api/overview` | usuario | Resumen de hoy, atrasados, próximos 7 días, examen y señal. |
 | `GET` | `/api/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD` | usuario | Repasos y marcas de señal por día (máx. 150 días). |
-| `POST` | `/api/studies` | usuario | Registra un estudio de hoy o del pasado y genera la cascada. |
+| `POST` | `/api/studies` | usuario | Registra un estudio de hoy o del pasado (`study_date`, nunca futuro) y genera la cascada. |
 | `POST` | `/api/reviews/:id/undo` | usuario | Deshace un estudio: el repaso vuelve a pendiente y se recalcula la cadena. |
 | `POST` | `/api/plan` | usuario | Planifica un repaso manual en una fecha (hoy o futura). |
 | `PATCH` | `/api/reviews/:id` | usuario | Cambia la fecha de un repaso y recalcula los posteriores. |
@@ -447,7 +450,7 @@ Todas las rutas, salvo `/api/auth`, `/api/session`, `/api/health` y `/api/signal
 | `GET` | `/api/history?q=&sort=date\|topic` | usuario | Historial agrupado por tema. |
 | `GET` | `/api/settings` | usuario | Ajustes básicos; el administrador recibe además API, intervalos y señal. |
 | `PUT` | `/api/settings` | usuario | Guarda la fecha de examen (el máximo diario solo lo cambia el administrador). |
-| `POST` | `/api/signals` | **admin** | Marca la señal de hoy desde la interfaz. |
+| `POST` | `/api/signals` | **admin** | Marca la señal (`date` opcional: hoy o pasada, nunca futura). |
 | `GET` | `/api/export?format=json\|csv` | usuario | Copia JSON completa o CSV de datos (repasos y señales). |
 | `POST` | `/api/reset` | **admin** | Vacía los datos de estudio (`keep_settings` conserva examen y máximo diario). |
 | `POST` | `/api/restore` | **admin** | Restaura una copia (mismo formato que la exportación JSON). Reemplaza todo. |

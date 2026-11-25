@@ -1163,6 +1163,7 @@
       review: extra || null,
       interval: 3,
       manualDate: '',
+      doneDate: todayISO(),
       suggestions: buildSuggestions(extra),
     };
 
@@ -1185,8 +1186,11 @@
 
     $('#studyCode').value = extra ? extra.topic.code : '';
     $('#studyComments').value = '';
+    $('#studyDoneDate').value = state.study.doneDate;
+    $('#studyDoneDate').min = addDays(state.study.doneDate, -365);
+    $('#studyDoneDate').max = state.study.doneDate;
     $('#studyDate').value = '';
-    $('#studyDate').min = todayISO();
+    $('#studyDate').min = addDays(state.study.doneDate, 1);
     $('#studyDate').max = state.overview?.examDate || '';
     $('#studyError').textContent = '';
     $('#intervalChips').querySelectorAll('.chip').forEach((chip) => {
@@ -1207,6 +1211,10 @@
   function selectSuggestion(id) {
     const suggestion = state.study.suggestions.find((item) => item.review.id === Number(id));
     if (!suggestion) return;
+    if (suggestion.review.dueDate > studyBaseDate()) {
+      $('#studyError').textContent = `Ese repaso no tocaba el ${formatMediumDate(studyBaseDate())}. Cambia la fecha del estudio o elige otro.`;
+      return;
+    }
     state.study.review = suggestion.review;
     $('#studyCode').value = suggestion.review.topic.code;
     $('#studyCodeHint').textContent = `Registrarás el repaso pendiente del ${formatMediumDate(suggestion.review.dueDate)}.`;
@@ -1216,23 +1224,33 @@
     $('#studyError').textContent = '';
   }
 
+  /** Fecha en la que ocurrió el estudio (por defecto, hoy). */
+  function studyBaseDate() {
+    return state.study.doneDate || todayISO();
+  }
+
   function updateIntervalHint() {
     const hint = $('#intervalHint');
+    const base = studyBaseDate();
+    const isPast = base !== todayISO();
     if (state.study.manualDate) {
       hint.textContent = `Fecha manual: ${formatMediumDate(state.study.manualDate)}`;
       return;
     }
-    const target = addDays(todayISO(), state.study.interval);
-    hint.textContent = `Siguiente repaso el ${formatMediumDate(target)} (+${state.study.interval} días)`;
+    const target = addDays(base, state.study.interval);
+    const late = target < todayISO() ? ' · quedará atrasado' : '';
+    hint.textContent = isPast
+      ? `Siguiente repaso el ${formatMediumDate(target)} (${state.study.interval} días desde el ${formatMediumDate(base)})${late}`
+      : `Siguiente repaso el ${formatMediumDate(target)} (+${state.study.interval} días)`;
   }
 
   function studyTargetDate() {
-    return state.study.manualDate || addDays(todayISO(), state.study.interval);
+    return state.study.manualDate || addDays(studyBaseDate(), state.study.interval);
   }
 
   /** Elige desde la vista rápida la fecha exacta del siguiente repaso. */
   function pickStudyDate(date) {
-    if (!date || date <= todayISO()) return;
+    if (!date || date <= studyBaseDate()) return;
     state.study.manualDate = date;
     $('#studyDate').value = date;
     $$('#intervalChips .chip').forEach((item) => item.classList.remove('is-active'));
@@ -1266,7 +1284,7 @@
     try {
       const data = await api(`/api/calendar?from=${from}&to=${to}`);
       if (sequence !== state.previewSeq) return;
-      renderLoadStrip($('#loadDays'), data, target, addDays(todayISO(), 1));
+      renderLoadStrip($('#loadDays'), data, target, addDays(studyBaseDate(), 1));
       const targetDay = data.days.find((day) => day.date === target);
       const count = targetDay ? targetDay.reviews.filter((review) => review.status === 'pending').length : 0;
       const isFull = count >= MAX_PER_DAY;
@@ -1315,9 +1333,24 @@
       return;
     }
 
+    const doneDate = $('#studyDoneDate').value || todayISO();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(doneDate)) {
+      errorBox.textContent = 'Indica una fecha de estudio válida.';
+      return;
+    }
+    if (doneDate > todayISO()) {
+      errorBox.textContent = 'No puedes registrar un estudio en el futuro.';
+      return;
+    }
+    if (review && review.dueDate > doneDate) {
+      errorBox.textContent = `Ese repaso no tocaba el ${formatMediumDate(doneDate)}. Elige otro o cambia la fecha del estudio.`;
+      return;
+    }
+
     const payload = {
       code: typedCode,
       comments: $('#studyComments').value.trim() || null,
+      study_date: doneDate,
     };
     if (review) payload.review_id = review.id;
     if (state.study.manualDate) payload.next_date = state.study.manualDate;
@@ -1356,7 +1389,9 @@
     closeDialog($('#studyDialog'));
     closeDialog($('#collisionDialog'));
     state.study.review = null;
-    if (first) {
+    if (first && first < todayISO()) {
+      toast(`Estudio registrado. Queda un repaso atrasado desde el ${formatMediumDate(first)}.`, 'amber');
+    } else if (first) {
       toast(`Estudio registrado. Próximo repaso: ${formatMediumDate(first)}.`);
     } else if (result.examReached) {
       toast('Estudio registrado. La fecha del examen ya está próxima: no hay repasos posteriores.', 'amber');
@@ -1955,7 +1990,7 @@
           <strong>${signal?.currentSymbol || '—'} ${signal?.last ? `${signal.daysSince} ${plural(signal.daysSince, 'día', 'días')}` : ''}</strong>
         </div>
         <div class="settings-actions">
-          <button type="button" class="btn btn-soft" data-action="mark-signal"><svg class="icon icon-sm"><use href="#i-heart"></use></svg> Marcar señal ahora</button>
+          <button type="button" class="btn btn-soft" data-action="mark-signal"><svg class="icon icon-sm"><use href="#i-heart"></use></svg> Marcar señal</button>
         </div>
         <p class="hint">❤️ el día de la señal · 😢 +7 días · 😭 +14 días · 💔 +21 días y un corazón roto más cada 5 días. Cada marca aparece en el calendario dos días antes de su fecha y se queda una vez alcanzada; el ciclo se reinicia con una nueva señal.</p>
       </section>
@@ -2471,12 +2506,47 @@ automation:
   /* Señal / sesión / instalación                                        */
   /* ------------------------------------------------------------------ */
 
-  async function markSignal(button) {
+  function markSignal() {
     if (!isAdmin()) return;
-    if (button) button.disabled = true;
+    const signal = state.overview?.signal || state.settings?.signal;
+    const today = todayISO();
+    $('#signalDate').value = today;
+    $('#signalDate').max = today;
+    $('#signalLastHint').textContent = signal?.last
+      ? `Última señal: ${formatMediumDate(signal.last.date)} · ${signal.daysSince} ${plural(signal.daysSince, 'día', 'días')} sin señal.`
+      : 'Todavía no hay ninguna señal registrada.';
+    $('#signalError').textContent = '';
+    showDialog($('#signalDialog'));
+  }
+
+  async function submitSignal(event) {
+    event.preventDefault();
+    if (!isAdmin()) return;
+    const button = $('#signalSubmit');
+    const errorBox = $('#signalError');
+    errorBox.textContent = '';
+    const date = $('#signalDate').value || todayISO();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      errorBox.textContent = 'Indica una fecha válida.';
+      return;
+    }
+    if (date > todayISO()) {
+      errorBox.textContent = 'No puedes registrar una señal en el futuro.';
+      return;
+    }
+
+    setBusy(button, true);
     try {
-      await api('/api/signals', { method: 'POST', body: {} });
-      toast('Señal registrada ❤️ El ciclo empieza de nuevo.');
+      const result = await api('/api/signals', { method: 'POST', body: { date } });
+      closeDialog($('#signalDialog'));
+      const when = result?.date && result.date !== todayISO() ? ` del ${formatMediumDate(result.date)}` : '';
+      const resets = result?.state?.last?.date === result.date;
+      toast(
+        resets
+          ? `Señal registrada ❤️${when}. El ciclo empieza de nuevo.`
+          : `Señal registrada ❤️${when}. No reinicia el ciclo porque hay una señal posterior.`
+      );
       state.settingsDirty = true;
       await refreshData({ silent: true });
       if (state.view === 'settings') {
@@ -2484,9 +2554,10 @@ automation:
         renderSettings();
       }
     } catch (error) {
-      toast(error.message, 'error');
+      errorBox.textContent = error.message;
+      if (error.status === 0) toast(error.message, 'error');
     } finally {
-      if (button) button.disabled = false;
+      setBusy(button, false);
     }
   }
 
@@ -2708,6 +2779,30 @@ automation:
       updateIntervalHint();
       updateStudyPreview();
     });
+    $('#studyDoneDate').addEventListener('change', () => {
+      const today = todayISO();
+      let value = $('#studyDoneDate').value || today;
+      if (value > today) {
+        value = today;
+        $('#studyDoneDate').value = value;
+      }
+      state.study.doneDate = value;
+      $('#studyDate').min = addDays(value, 1);
+
+      if (state.study.manualDate && state.study.manualDate <= value) {
+        state.study.manualDate = '';
+        $('#studyDate').value = '';
+        const active = $('#intervalChips').querySelector(`[data-interval="${state.study.interval}"]`);
+        if (active) active.classList.add('is-active');
+      }
+      if (state.study.review && state.study.review.dueDate > value) {
+        state.study.review = null;
+        $$('#studySuggestions .suggestion').forEach((button) => button.classList.remove('is-active'));
+        $('#studyCodeHint').textContent = 'Ese repaso no tocaba ese día. Elige otro o escribe el identificador.';
+      }
+      updateIntervalHint();
+      updateStudyPreview();
+    });
     $('#studyDate').addEventListener('change', () => {
       const value = $('#studyDate').value;
       state.study.manualDate = value || '';
@@ -2725,6 +2820,9 @@ automation:
       if (!day || day.classList.contains('is-past')) return;
       pickStudyDate(day.dataset.date);
     });
+
+    // Marcar señal
+    $('#signalForm').addEventListener('submit', submitSignal);
 
     // Mover repaso
     $('#moveForm').addEventListener('submit', submitMove);

@@ -299,7 +299,13 @@
 
     <div class="modal-body">
       <div class="field">
-        <label for="studyCode">¿Qué has estudiado hoy?</label>
+        <label for="studyDoneDate">Fecha del estudio</label>
+        <input class="input input-date" id="studyDoneDate" type="date" required>
+        <p class="hint">Por defecto, hoy. Puedes registrar hasta un año atrás; nunca en el futuro.</p>
+      </div>
+
+      <div class="field">
+        <label for="studyCode">¿Qué has estudiado?</label>
         <div class="suggestions" id="studySuggestions"></div>
         <input class="input" id="studyCode" type="text" placeholder="Ej. Tema 12 · Acto administrativo" autocomplete="off" maxlength="80">
         <p class="hint" id="studyCodeHint">Elige un repaso pendiente o escribe un identificador libre.</p>
@@ -345,6 +351,37 @@
       <button type="submit" class="btn btn-primary" id="studySubmit">
         <svg class="icon"><use href="#i-check"></use></svg>
         <span>Registrar estudio</span>
+      </button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ====================== MODAL: SEÑAL ========================= -->
+<dialog class="modal modal-sm" id="signalDialog" aria-labelledby="signalTitle">
+  <form class="modal-card" id="signalForm" method="dialog">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">Constancia</p>
+        <h2 id="signalTitle">Marcar señal</h2>
+      </div>
+      <button type="button" class="icon-btn" data-close="signalDialog" aria-label="Cerrar">
+        <svg class="icon"><use href="#i-x"></use></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="signalDate">Fecha de la señal</label>
+        <input class="input input-date" id="signalDate" type="date" required>
+        <p class="hint">Por defecto, hoy. El ciclo de marcas se reinicia desde esa fecha; nunca en el futuro.</p>
+      </div>
+      <p class="hint" id="signalLastHint"></p>
+      <p class="form-error" id="signalError" role="alert"></p>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-ghost" data-close="signalDialog">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="signalSubmit">
+        <svg class="icon"><use href="#i-heart"></use></svg>
+        <span>Registrar señal</span>
       </button>
     </div>
   </form>

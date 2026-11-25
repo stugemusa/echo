@@ -77,6 +77,7 @@ HTTPS.
 
 ## Repasos
 
+- **Registrar un estudio**: el campo **Fecha del estudio** viene con hoy por defecto y admite cualquier día del último año, para apuntar algo que olvidaste. Nunca admite fechas futuras ni anteriores a un estudio ya registrado del mismo tema; la cadena se recalcula desde la fecha indicada.
 - **Planificar a mano**: en la vista diaria, **Planificar repaso** reserva un repaso en cualquier día futuro sin registrar un estudio.
 - **Cambiar la fecha**: recalcula toda la cadena posterior del tema. En el diálogo, la tira de carga semanal es pulsable: al tocar un día se fija esa fecha.
 - **Eliminar**: la papelera de cada repaso pendiente (o **Eliminar** al cambiar la fecha) borra ese repaso con confirmación.
@@ -108,6 +109,11 @@ marcas ya alcanzadas se mantienen. Cadencia: ❤️ el día de la señal, 😢 +
 💔 +21 y un corazón roto más cada 5 días. Una nueva señal reinicia el ciclo.
 
 No hay leyenda ni aviso del próximo icono: el diseño es discreto a propósito.
+
+Al marcar una señal (**Dejar señal** / **Marcar señal**) se indica la fecha en un
+diálogo: hoy por defecto, o un día pasado. Nunca se admite una fecha futura. El
+ciclo se reinicia desde esa fecha; si ya había una señal posterior, la nueva se
+añade al calendario pero no reinicia el ciclo.
 
 ## API externa
 
