@@ -8,6 +8,31 @@ Está pensada para ejecutarse en **Home Assistant OS** sobre una Raspberry Pi, c
 
 ---
 
+## Referencia rápida
+
+### Claves
+
+| Opción del add-on | Por defecto | Qué es |
+| --- | --- | --- |
+| `app_pin` | `1234` | PIN del perfil **usuario normal** |
+| `admin_pin` | *(vacío)* | PIN del perfil **administrador** |
+
+- **Si `admin_pin` está vacío, el PIN de usuario también entra como administrador.** Tal como viene de fábrica, `1234` sirve para los dos perfiles.
+- Si defines `admin_pin`, los perfiles quedan separados: el PIN de usuario **no** da acceso a Ajustes ni a señales, y el de administrador entra como administrador (no como usuario).
+- Se cambian en **Ajustes → Aplicaciones → Tienda de add-ons → Echo → Configuración** (o con las variables `APP_PIN` / `ADMIN_PIN` en Docker). Al guardar, el add-on se reinicia y hay que volver a iniciar sesión.
+
+### Acceso desde fuera de casa
+
+**No.** Echo está pensado para la red local y **no se publica en Internet**:
+
+- El puerto `9001` **no** se reenvía en el router, así que desde fuera no hay nada escuchando.
+- En casa, el dominio DuckDNS solo funciona si resuelve a la IP local (por ejemplo con una reescritura de AdGuard Home). Fuera de casa resuelve a la IP pública, donde el `9001` está cerrado.
+- Lo que sí es accesible desde fuera es **Home Assistant** (puerto `443` → `8123`), pero eso es otro servicio, no Echo.
+
+Si algún día necesitas entrar desde fuera, la vía recomendada es una **VPN** (Tailscale o la VPN de Home Assistant). Abrir el `9001` en el router expone Echo directamente a Internet y no es lo que se busca.
+
+---
+
 ## Características
 
 - **Calendario navegable** con vistas mensual, semanal y diaria.
@@ -143,6 +168,8 @@ Echo decide el perfil según el PIN que introduzcas. No hay ningún selector ni 
 
 El usuario normal **no sabe** que existe un modo de administración: la pestaña de Ajustes y los botones de señal simplemente no están. Si defines un solo PIN (`app_pin`), ese PIN actúa como administrador para no romper instalaciones existentes.
 
+**Valores por defecto:** `app_pin: "1234"` y `admin_pin` vacío, así que de fábrica `1234` entra como usuario y como administrador. En cuanto rellenes `admin_pin`, los dos perfiles quedan separados y ese PIN de usuario ya no verá Ajustes. Ver [Referencia rápida](#claves).
+
 ### Puerto
 
 El add-on expone el contenedor `3000` en el host `9001`. Home Assistant permite cambiarlo desde la configuración de red del add-on (`3000/tcp`).
@@ -158,7 +185,9 @@ El add-on puede servir HTTPS directamente, reutilizando el certificado de DuckDN
 
 1. En la pestaña **Configuración** del add-on activa `ssl` y deja `certfile: fullchain.pem` y `keyfile: privkey.pem` (las rutas relativas se resuelven dentro de `/ssl`).
 2. Guarda y reinicia el add-on. El puerto `9001` pasará a hablar HTTPS.
-3. En el router, reenvía el puerto externo `9001` hacia `IP_DE_TU_HA:9001` si quieres acceder desde fuera. Con el certificado de DuckDNS, la URL correcta es `https://TU-DOMINIO.duckdns.org:9001`.
+3. Para usarlo **solo en casa** no hay que tocar el router: basta con que el dominio DuckDNS resuelva a la IP local (reescritura en AdGuard Home). Ver [Referencia rápida → Acceso desde fuera de casa](#acceso-desde-fuera-de-casa).
+
+> Reenviar el puerto `9001` en el router es **opcional y no recomendado**: es lo único que publicaría Echo en Internet. Si necesitas acceso remoto, usa una VPN.
 
 > El certificado está emitido para tu dominio DuckDNS, no para la IP local: si entras por `https://192.168.…:9001` el navegador avisará de que el certificado no coincide. Desde la red local, lo más cómodo es seguir usando `http://IP_DE_TU_HA:9001`; el HTTPS queda para el acceso remoto y para tener PWA/offline.
 
@@ -555,9 +584,9 @@ Casi siempre es el dispositivo o la red, no Echo. **Por este orden**, que es de 
 
 Ese `:9001` no es el mismo camino que tu Home Assistant en `https://TU-DOMINIO.duckdns.org` (ese va por el `443` → HA). Tienes dos formas:
 
-- **Desde fuera de casa (o con reenvío):** reenvía en el router el puerto externo `9001` hacia `IP_DE_TU_HA:9001`. Así funciona con el certificado de DuckDNS y desde cualquier sitio, pero **deja Echo publicado en Internet**.
-- **Solo en casa, sin exponer nada:** haz que el dominio resuelva a la IP local **en el propio dispositivo**. Con un DNS local (por ejemplo el add-on **AdGuard Home** con una reescritura `TU-DOMINIO.duckdns.org → IP_DE_TU_HA`) el navegador va directo a la caja, el certificado de DuckDNS es válido y **no hace falta reenviar ningún puerto**.
+- **Solo en casa, sin exponer nada (recomendado):** haz que el dominio resuelva a la IP local **en el propio dispositivo**. Con un DNS local (por ejemplo el add-on **AdGuard Home** con una reescritura `TU-DOMINIO.duckdns.org → IP_DE_TU_HA`) el navegador va directo a la caja, el certificado de DuckDNS es válido y **no hace falta reenviar ningún puerto**.
   > Requisito imprescindible: que el dispositivo use **de verdad** ese DNS. Los puntos 1 y 2 de arriba (permiso de Android y RA/IPv6) son justo los que rompen esto sin que te enteres.
+- **Desde fuera de casa:** reenviar el `9001` en el router funciona, pero **deja Echo publicado en Internet**, así que no se usa. La alternativa es una VPN (Tailscale o la VPN de Home Assistant).
 
 Con un certificado válido y contexto seguro, el navegador ofrece **Instalar aplicación** y el service worker queda registrado (modo sin conexión). Con un certificado no válido (por ejemplo entrando por IP con aviso), Chrome **no** instala la PWA.
 

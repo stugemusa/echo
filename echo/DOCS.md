@@ -22,6 +22,8 @@ El PIN introducido decide el perfil. No hay pistas en la pantalla de acceso:
 
 Si solo defines `app_pin`, ese PIN se comporta como administrador (compatibilidad).
 
+**De fábrica** (`app_pin: 1234` y `admin_pin` vacío) el PIN `1234` sirve para los dos perfiles. En cuanto rellenes `admin_pin`, quedan separados: el PIN de usuario ya no verá Ajustes ni podrá marcar señales, y el de administrador entra como administrador, no como usuario.
+
 ## Acceso
 
 El add-on publica el puerto interno `3000` en el host `9001`. Abre:
@@ -38,13 +40,16 @@ http://IP_DE_TU_HOME_ASSISTANT:9001
 
 Si el puerto 9001 está ocupado, cámbialo en **Configuración → Red** del add-on.
 
+**Desde fuera de casa no se llega, y es intencionado.** El puerto `9001` no se reenvía en el router, así que Echo solo existe en la red local. El dominio DuckDNS sirve para tener HTTPS válido en casa (si resuelve a la IP local con un DNS propio), no para publicarlo. Lo que sí es accesible desde fuera es Home Assistant (`443` → `8123`), que es otro servicio. Si necesitas acceso remoto a Echo, usa una VPN (Tailscale o la VPN de Home Assistant); abrir el `9001` lo expondría a Internet.
+
 ## HTTPS opcional
 
 Activa `ssl` para que el add-on sirva HTTPS reutilizando el certificado de DuckDNS/Let's Encrypt de Home Assistant (vive en `/ssl`):
 
 1. Activa `ssl: true` y deja `certfile: fullchain.pem` y `keyfile: privkey.pem`.
 2. Reinicia el add-on. El puerto 9001 pasará a hablar HTTPS.
-3. Si quieres acceso remoto, reenvía el puerto `9001` en el router hacia `IP_DE_TU_HA:9001` y entra por `https://TU-DOMINIO.duckdns.org:9001`.
+3. Para usarlo **solo en casa** no hay que tocar el router: haz que el dominio DuckDNS resuelva a la IP local (por ejemplo, reescritura en AdGuard Home) y entra por `https://TU-DOMINIO.duckdns.org:9001` con candado válido.
+4. Reenviar el `9001` en el router es opcional y **no recomendado**: es lo único que publicaría Echo en Internet.
 
 > El certificado está emitido para tu dominio, no para la IP local. Por `https://` con IP verás un aviso de certificado: en la red local sigue usando `http://IP_DE_TU_HA:9001`.
 
